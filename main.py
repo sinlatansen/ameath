@@ -922,21 +922,26 @@ if __name__ == "__main__":
     import webbrowser
     import threading
 
-    def show_update_dialog(latest_version):
+    def show_update_dialog(parent, latest_version):
         """显示版本更新通知弹窗"""
-        dialog = tk.Tk()
+        dialog = tk.Toplevel(parent)
         dialog.title("发现新版本")
-        dialog.geometry("400x200")
+        width, height = 520, 300
+        dialog.geometry(f"{width}x{height}")
         dialog.resizable(False, False)
         dialog.attributes("-topmost", True)
-        dialog.transient()
+        dialog.transient(parent)
+        try:
+            dialog.iconbitmap(resource_path("gifs/ameath.ico"))
+        except Exception as e:
+            print(f"设置更新窗口图标失败: {e}")
 
         # 居中显示
         dialog.update_idletasks()
         screen_w = dialog.winfo_screenwidth()
         screen_h = dialog.winfo_screenheight()
-        x = (screen_w - 400) // 2
-        y = (screen_h - 200) // 2
+        x = (screen_w - width) // 2
+        y = (screen_h - height) // 2
         dialog.geometry(f"+{x}+{y}")
 
         # 内容
@@ -956,7 +961,6 @@ if __name__ == "__main__":
             dialog,
             text=f"最新版本: {latest_version}",
             font=("Microsoft YaHei UI", 12),
-            fg="#1890FF",
         ).pack(pady=(5, 20))
 
         # 按钮
@@ -969,13 +973,13 @@ if __name__ == "__main__":
 
         def on_skip():
             config = load_config()
-            config["skip_version"] = latest_version
+            config["skip_updates"] = True
             save_config(config)
             dialog.destroy()
 
         tk.Button(
             btn_frame,
-            text="前往下载",
+            text="前往发布",
             command=on_download,
             width=12,
             font=("Microsoft YaHei UI", 11),
@@ -993,27 +997,26 @@ if __name__ == "__main__":
             fg="white",
         ).pack(side=tk.LEFT, padx=15)
 
-        dialog.mainloop()
+        dialog.focus_force()
 
-    def check_version_and_notify():
+    def check_version_and_notify(root):
         """检查版本并通知（后台线程调用）"""
         latest = check_new_version()
         if latest and version_greater_than(latest, VERSION):
             config = load_config()
+            if config.get("skip_updates"):
+                return
             if config.get("skip_version") == latest:
                 return
             # 在主线程显示弹窗
-            root = tk.Tk()
-            root.withdraw()
-            root.after(0, lambda: show_update_dialog(latest))
-            root.after(1000, root.destroy)
-
-    # 后台检查版本（非阻塞）
-    threading.Thread(target=check_version_and_notify, daemon=True).start()
+            root.after(0, lambda: show_update_dialog(root, latest))
 
     root = tk.Tk()
     # 立即隐藏窗口，避免闪烁
     root.withdraw()
+
+    # 后台检查版本（非阻塞）
+    threading.Thread(target=check_version_and_notify, args=(root,), daemon=True).start()
 
     # 尝试导入pystray
     try:
