@@ -139,6 +139,8 @@ WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
 
 
+STAY_PUT_CHANCE = 0.3  # 停下时原地不动的概率
+
 # ==============================
 
 
@@ -559,15 +561,24 @@ class DesktopGif:
         # 如果是暂停状态，不处理
         if self.is_paused:
             return
-        self.is_moving = False
-        frames, delays = random.choice(self.idle_gifs)
-        self.current_frames = frames
-        self.current_delays = delays
-        self.frame_index = 0
 
-        # 随机停止一段时间后恢复移动
-        stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
-        self.root.after(stop_duration, self.switch_to_move)
+        # 有一定概率直接停在原地，不播放动画
+        if random.random() < STAY_PUT_CHANCE:
+            # 停在原地：关闭移动，但不播放 idle 动画
+            self.is_moving = False
+            # 停止一段时间后恢复移动
+            stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
+            self.root.after(stop_duration, self.switch_to_move)
+        else:
+            # 播放 idle 动画
+            self.is_moving = False
+            frames, delays = random.choice(self.idle_gifs)
+            self.current_frames = frames
+            self.current_delays = delays
+            self.frame_index = 0
+            # 随机停止一段时间后恢复移动
+            stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
+            self.root.after(stop_duration, self.switch_to_move)
 
     def switch_to_move(self):
         """切换到移动状态"""
