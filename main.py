@@ -33,13 +33,31 @@ def resource_path(relative_path):
 
 def get_version():
     """自动获取当前git标签版本"""
+    # 1. 优先读取 version.txt（打包后独立运行）
+    try:
+        version_path = resource_path("version.txt")
+        if os.path.exists(version_path):
+            with open(version_path, "r", encoding="utf-8") as f:
+                version = f.read().strip()
+            if version:
+                return version
+    except Exception:
+        pass
+
+    # 2. 回退：尝试从 git 获取
     try:
         version = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"], text=True
+            ["git", "describe", "--tags", "--abbrev=0"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
-        return version
-    except:
-        return "dev"
+        if version:
+            return version
+    except Exception:
+        pass
+
+    return "dev"
 
 
 # ============ 配置 ============

@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('gifs', 'gifs')],
+    datas=[('gifs', 'gifs'), ('version.txt', '.')],
     hiddenimports=['PIL._tkinter'],
     hookspath=[],
     hooksconfig={},
