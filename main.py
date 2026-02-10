@@ -1203,39 +1203,43 @@ if __name__ == "__main__":
             def open_gitee():
                 webbrowser.open("https://gitee.com/lzy-buaa-jdi/ameath/releases")
 
-            link1 = tk.Frame(content_frame, cursor="hand2")
+            link1 = tk.Frame(content_frame)
             link1.pack(pady=(0, 8))
             tk.Label(
                 link1,
                 text="软件发布页: ",
                 font=("Microsoft YaHei UI", 12),
             ).pack(side=tk.LEFT)
-            tk.Label(
+            link1_text = tk.Label(
                 link1,
                 text="Gitee Release",
                 font=("Microsoft YaHei UI", 12),
                 fg="#1890FF",
-            ).pack(side=tk.LEFT)
-            link1.bind("<Button-1>", lambda e: open_gitee())
+                cursor="hand2",
+            )
+            link1_text.pack(side=tk.LEFT)
+            link1_text.bind("<Button-1>", lambda e: open_gitee())
 
             # B站链接
             def open_bili():
                 webbrowser.open("https://space.bilibili.com/84508966")
 
-            link2 = tk.Frame(content_frame, cursor="hand2")
+            link2 = tk.Frame(content_frame)
             link2.pack(pady=(0, 25))
             tk.Label(
                 link2,
                 text="作者: ",
                 font=("Microsoft YaHei UI", 12),
             ).pack(side=tk.LEFT)
-            tk.Label(
+            link2_text = tk.Label(
                 link2,
                 text="b站-fugu-",
                 font=("Microsoft YaHei UI", 12),
                 fg="#1890FF",
-            ).pack(side=tk.LEFT)
-            link2.bind("<Button-1>", lambda e: open_bili())
+                cursor="hand2",
+            )
+            link2_text.pack(side=tk.LEFT)
+            link2_text.bind("<Button-1>", lambda e: open_bili())
 
             # 关闭按钮
             tk.Button(
