@@ -2,8 +2,9 @@ import os
 
 # ============ 配置 ============
 GIF_DIR = "gifs"
-SCALE_OPTIONS = [0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9]  # 缩放档位（适配高DPI）
+SCALE_OPTIONS = [0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9, '自定义']  # 缩放档位（适配高DPI）
 DEFAULT_SCALE_INDEX = 3
+SCALE_CUSTOMIZE = 1 # 自定义缩放
 TRANSPARENCY_OPTIONS = [
     1.0,
     0.9,
