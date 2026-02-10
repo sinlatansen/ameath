@@ -988,19 +988,21 @@ if __name__ == "__main__":
 
         def on_about(icon, item):
             """显示关于信息"""
+            import webbrowser
+
             about_window = tk.Toplevel(app.root)
             about_window.title("飞吧，朝向春天")
-            about_window.geometry("700x480")
+            about_window.geometry("700x550")
             about_window.resizable(False, False)
             about_window.attributes("-topmost", True)
 
-            # 设置窗口图标（与托盘图标一致）
+            # 设置窗口图标
             try:
                 icon_image = PILImage.open(resource_path("gifs/ameath.gif"))
                 icon_image = icon_image.resize((64, 64), Image.Resampling.LANCZOS)
                 icon_pil = icon_image.convert("RGBA")
                 app_icon = ImageTk.PhotoImage(icon_pil)
-                about_window.iconphoto(True, app_icon)  # type: ignore
+                about_window.iconphoto(True, app_icon)
             except:
                 pass
 
@@ -1009,48 +1011,84 @@ if __name__ == "__main__":
             screen_w = about_window.winfo_screenwidth()
             screen_h = about_window.winfo_screenheight()
             x = (screen_w - 700) // 2
-            y = (screen_h - 480) // 2
+            y = (screen_h - 550) // 2
             about_window.geometry(f"+{x}+{y}")
 
-            # 使用 Frame 添加内边距
-            padding_frame = tk.Frame(about_window, padx=50, pady=35)
-            padding_frame.pack(fill=tk.BOTH, expand=True)
+            # 主内容 Frame
+            content_frame = tk.Frame(about_window)
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
 
-            # 内容
+            # 显示 ameath.gif
+            try:
+                gif_image = PILImage.open(resource_path("gifs/ameath.gif"))
+                gif_image = gif_image.resize((100, 100), Image.Resampling.LANCZOS)
+                gif_photo = ImageTk.PhotoImage(gif_image)
+                gif_label = tk.Label(content_frame, image=gif_photo, border=0)
+                gif_label.image = gif_photo
+                gif_label.pack(pady=(0, 15))
+            except Exception as e:
+                print(f"加载关于窗口GIF失败: {e}")
+
+            # 标题
             tk.Label(
-                padding_frame,
+                content_frame,
                 text="飞吧，朝向春天",
-                font=("Microsoft YaHei UI", 26, "bold"),
-            ).pack(pady=(0, 35))
+                font=("Microsoft YaHei UI", 20, "bold"),
+            ).pack(pady=(0, 20))
 
+            # 版本号
             tk.Label(
-                padding_frame,
+                content_frame,
                 text=f"版本: {VERSION}",
-                font=("Microsoft YaHei UI", 16),
-            ).pack()
+                font=("Microsoft YaHei UI", 12),
+            ).pack(pady=(0, 15))
 
-            tk.Label(
-                padding_frame,
-                text=f"作者B站: {AUTHOR_BILIBILI}",
-                font=("Microsoft YaHei UI", 16),
-            ).pack(pady=(25, 0))
+            # Gitee Release 链接
+            def open_gitee():
+                webbrowser.open("https://gitee.com/lzy-buaa-jdi/ameath/releases")
 
+            link1 = tk.Frame(content_frame, cursor="hand2")
+            link1.pack(pady=(0, 8))
             tk.Label(
-                padding_frame,
-                text=f"邮箱: {AUTHOR_EMAIL}",
-                font=("Microsoft YaHei UI", 16),
-                wraplength=600,  # 自动换行
-                justify=tk.LEFT,
-            ).pack(pady=(25, 0))
+                link1,
+                text="软件发布页: ",
+                font=("Microsoft YaHei UI", 12),
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                link1,
+                text="Gitee Release",
+                font=("Microsoft YaHei UI", 12),
+                fg="#1890FF",
+            ).pack(side=tk.LEFT)
+            link1.bind("<Button-1>", lambda e: open_gitee())
+
+            # B站链接
+            def open_bili():
+                webbrowser.open("https://space.bilibili.com/84508966")
+
+            link2 = tk.Frame(content_frame, cursor="hand2")
+            link2.pack(pady=(0, 25))
+            tk.Label(
+                link2,
+                text="作者: ",
+                font=("Microsoft YaHei UI", 12),
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                link2,
+                text="b站-fugu-",
+                font=("Microsoft YaHei UI", 12),
+                fg="#1890FF",
+            ).pack(side=tk.LEFT)
+            link2.bind("<Button-1>", lambda e: open_bili())
 
             # 关闭按钮
             tk.Button(
-                padding_frame,
+                content_frame,
                 text="确定",
                 command=about_window.destroy,
                 width=12,
-                font=("Microsoft YaHei UI", 14),
-            ).pack(pady=(40, 0))
+                font=("Microsoft YaHei UI", 11),
+            ).pack(pady=(10, 0))
 
         def create_menu(app_instance):
             """动态创建菜单"""
