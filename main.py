@@ -60,6 +60,55 @@ def get_version():
     return "dev"
 
 
+def check_new_version():
+    """检查Gitee是否有新版本"""
+    import urllib.request
+    import re
+
+    try:
+        req = urllib.request.Request(
+            GITEE_RELEASES_URL,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            html = response.read().decode("utf-8")
+
+        # 提取最新版本的标签名 (格式: <a href="/lzy-buaa-jdi/ameath/releases/tag/v1.1.1">v1.1.1</a>)
+        pattern = r'href="/lzy-buaa-jdi/ameath/releases/tag/(v[^"]+)"'
+        matches = re.findall(pattern, html)
+        if matches:
+            return matches[0]
+    except Exception as e:
+        print(f"检查版本失败: {e}")
+    return None
+
+
+def normalize_version(v):
+    """标准化版本号用于比较"""
+    v = v.lstrip("v")
+    parts = v.split(".")
+    if v == "dev" or not v:
+        return []
+    try:
+        return [int(p) for p in parts if p.isdigit()]
+    except:
+        return []
+
+
+def version_greater_than(v1, v2):
+    """比较两个版本号，v1 > v2 返回 True"""
+    parts1 = normalize_version(v1)
+    parts2 = normalize_version(v2)
+    if not parts1 or not parts2:
+        return False
+    max_len = max(len(parts1), len(parts2))
+    parts1 = parts1 + [0] * (max_len - len(parts1))
+    parts2 = parts2 + [0] * (max_len - len(parts2))
+    return parts1 > parts2
+
+
 # ============ 配置 ============
 GIF_DIR = "gifs"
 SCALE_OPTIONS = [0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9]  # 缩放档位（适配高DPI）
@@ -80,6 +129,7 @@ DEFAULT_TRANSPARENCY_INDEX = 0  # 默认不透明
 VERSION = get_version()
 AUTHOR_BILIBILI = "-fugu-"
 AUTHOR_EMAIL = "1977184420@qq.com"
+GITEE_RELEASES_URL = "https://gitee.com/lzy-buaa-jdi/ameath/releases"
 SPEED_X = 3
 SPEED_Y = 2
 TRANSPARENT_COLOR = "pink"
@@ -869,6 +919,98 @@ class DesktopGif:
 
 
 if __name__ == "__main__":
+    import webbrowser
+    import threading
+
+    def show_update_dialog(latest_version):
+        """显示版本更新通知弹窗"""
+        dialog = tk.Tk()
+        dialog.title("发现新版本")
+        dialog.geometry("400x200")
+        dialog.resizable(False, False)
+        dialog.attributes("-topmost", True)
+        dialog.transient()
+
+        # 居中显示
+        dialog.update_idletasks()
+        screen_w = dialog.winfo_screenwidth()
+        screen_h = dialog.winfo_screenheight()
+        x = (screen_w - 400) // 2
+        y = (screen_h - 200) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        # 内容
+        tk.Label(
+            dialog,
+            text="发现新版本！",
+            font=("Microsoft YaHei UI", 16, "bold"),
+        ).pack(pady=(25, 15))
+
+        tk.Label(
+            dialog,
+            text=f"当前版本: {VERSION}",
+            font=("Microsoft YaHei UI", 12),
+        ).pack()
+
+        tk.Label(
+            dialog,
+            text=f"最新版本: {latest_version}",
+            font=("Microsoft YaHei UI", 12),
+            fg="#1890FF",
+        ).pack(pady=(5, 20))
+
+        # 按钮
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=(0, 25))
+
+        def on_download():
+            webbrowser.open(GITEE_RELEASES_URL)
+            dialog.destroy()
+
+        def on_skip():
+            config = load_config()
+            config["skip_version"] = latest_version
+            save_config(config)
+            dialog.destroy()
+
+        tk.Button(
+            btn_frame,
+            text="前往下载",
+            command=on_download,
+            width=12,
+            font=("Microsoft YaHei UI", 11),
+            bg="#1890FF",
+            fg="white",
+        ).pack(side=tk.LEFT, padx=15)
+
+        tk.Button(
+            btn_frame,
+            text="不再提醒",
+            command=on_skip,
+            width=12,
+            font=("Microsoft YaHei UI", 11),
+            bg="#999999",
+            fg="white",
+        ).pack(side=tk.LEFT, padx=15)
+
+        dialog.mainloop()
+
+    def check_version_and_notify():
+        """检查版本并通知（后台线程调用）"""
+        latest = check_new_version()
+        if latest and version_greater_than(latest, VERSION):
+            config = load_config()
+            if config.get("skip_version") == latest:
+                return
+            # 在主线程显示弹窗
+            root = tk.Tk()
+            root.withdraw()
+            root.after(0, lambda: show_update_dialog(latest))
+            root.after(1000, root.destroy)
+
+    # 后台检查版本（非阻塞）
+    threading.Thread(target=check_version_and_notify, daemon=True).start()
+
     root = tk.Tk()
     # 立即隐藏窗口，避免闪烁
     root.withdraw()
