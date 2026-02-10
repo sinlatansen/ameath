@@ -163,6 +163,8 @@ REST_CHANCE = 0.6  # 到达目标后休息的概率
 REST_DURATION_MIN = 1000  # 休息最小时间(ms)
 REST_DURATION_MAX = 3000  # 休息最大时间(ms)
 REST_DISTANCE = 20  # 到达目标的判定距离
+MIN_INTERVAL = 30000  # 暂停模式随机动画最小时间(ms)
+MAX_INTERVAL = 120000  # 暂停模式随机动画最大时间(ms)
 
 # 跟随参数
 FOLLOW_START_DIST = 200  # 开始跟随的距离
@@ -377,6 +379,9 @@ class DesktopGif:
         drag_path = resource_path(os.path.join(GIF_DIR, "drag.gif"))
         self.drag_frames, self.drag_delays, _ = load_gif_frames(drag_path, self.scale)
 
+        # 加载paused的GIF
+        paused_path = resource_path(os.path.join(GIF_DIR, "idle2.gif"))
+        self.paused_frames, self.paused_delays, _ = load_gif_frames(paused_path, self.scale)
         # 当前状态
         self.current_frames = self.move_frames
         self.current_delays = self.move_delays
@@ -451,19 +456,18 @@ class DesktopGif:
 
     def ensure_topmost(self):
         """轻量级置顶轮询（替代Shell Hook）"""
-        if not self.is_paused:  # 只在非暂停时确保置顶
-            try:
-                ctypes.windll.user32.SetWindowPos(
-                    self.hwnd,
-                    HWND_TOPMOST,
-                    0,
-                    0,
-                    0,
-                    0,
-                    SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-                )
-            except:
-                pass
+        try:
+            ctypes.windll.user32.SetWindowPos(
+                self.hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            )
+        except:
+            pass
         self.root.after(2000, self.ensure_topmost)
 
     def check_quit(self):
@@ -538,6 +542,9 @@ class DesktopGif:
             result = load_gif_frames(idle_path, self.scale)
             if result[0]:
                 self.idle_gifs.append((result[0], result[1]))
+        # 确保有idle帧可用
+        if not self.idle_gifs:
+            self.idle_gifs.append((self.move_frames, self.move_delays))
 
         # 重新加载drag.gif
         drag_path = resource_path(os.path.join(GIF_DIR, "drag.gif"))
@@ -545,9 +552,11 @@ class DesktopGif:
         if drag_result[0]:
             self.drag_frames, self.drag_delays, _ = drag_result
 
-        # 确保有idle帧可用
-        if not self.idle_gifs:
-            self.idle_gifs.append((self.move_frames, self.move_delays))
+        # 加载paused的GIF
+        paused_path = resource_path(os.path.join(GIF_DIR, "idle2.gif"))
+        paused_result = load_gif_frames(paused_path, self.scale)
+        if paused_result[0]:
+            self.paused_frames, self.paused_delays, _ = paused_result
 
         # 更新窗口大小
         if self.move_frames:
@@ -566,12 +575,8 @@ class DesktopGif:
         """切换暂停/继续"""
         self.is_paused = not self.is_paused
         if self.is_paused:
-            # 暂停：停止移动，切换到idle动画
-            self.is_moving = False
-            frames, delays = random.choice(self.idle_gifs)
-            self.current_frames = frames
-            self.current_delays = delays
-            self.frame_index = 0
+            # 暂停：停止移动，切换到暂停模式
+            self.paused()
         else:
             # 继续：恢复移动
             self.is_moving = True
@@ -592,9 +597,9 @@ class DesktopGif:
         # 保存当前帧状态
         self._pre_drag_frames = self.current_frames
         self._pre_drag_delays = self.current_delays
-        # 切换到drag静态帧（只显示第一帧）
+        # 切换到drag动态显示
         self.current_frames = self.drag_frames
-        self.current_delays = [1000] * len(self.drag_frames)
+        self.current_delays = self.drag_delays
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
@@ -606,11 +611,29 @@ class DesktopGif:
             self.y = event.y_root - self.drag_start_y
             self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
 
+    def paused(self):
+        self.current_frames = self.paused_frames
+        self.current_delays = self.paused_delays
+        self.frame_index = 0
+        interval = random.randint(MIN_INTERVAL, MAX_INTERVAL)
+        self.root.after(interval, self.paused_to_idle)
+
+    def paused_to_idle(self):
+        """切换到随机idle状态（暂停状态）"""
+        # 播放 idle 动画
+        frames, delays = random.choice(self.idle_gifs)
+        self.current_frames = frames
+        self.current_delays = delays
+        self.frame_index = 0
+        # 随机停止一段时间后恢复暂停模式
+        stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
+        self.root.after(stop_duration, self.paused)
+
     def switch_to_idle(self):
         """切换到随机idle状态（随机停下功能）"""
-        # 如果是暂停状态，不处理
+        # 如果是暂停状态跳转paused
         if self.is_paused:
-            return
+            self.root.after(stop_duration, self.paused)
 
         # 有一定概率直接停在原地，不播放动画
         if random.random() < STAY_PUT_CHANCE:
@@ -733,9 +756,9 @@ class DesktopGif:
             self.root.after(100, self.animate)
             return
         # 拖动时不更新帧（静态显示）
-        if self.dragging:
-            self.root.after(50, self.animate)
-            return
+        #if self.dragging:
+        #    self.root.after(50, self.animate)
+        #    return
         self.label.config(image=self.current_frames[self.frame_index])
         delay = self.current_delays[self.frame_index] if self.current_delays else 100
 
@@ -757,6 +780,10 @@ class DesktopGif:
         # ============ 随机停下休息（游荡模式专属） ============
         if self.motion_state == MOTION_WANDER and self.is_moving:
             if random.random() < STOP_CHANCE:
+                # 移动状态不播放闲置动画
+                #self._was_wandering = True
+                #self.motion_state = MOTION_REST
+                #self.rest_timer = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
                 self.switch_to_idle()
                 self.root.after(MOVE_INTERVAL, self.move)
                 return
