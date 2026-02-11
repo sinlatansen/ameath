@@ -256,6 +256,10 @@ class DesktopGif:
             hwnd = ctypes.windll.user32.GetForegroundWindow()
             if not hwnd or hwnd == self.hwnd:
                 return False
+            class_name = ctypes.create_unicode_buffer(256)
+            ctypes.windll.user32.GetClassNameW(hwnd, class_name, 256)
+            if class_name.value in {"Progman", "WorkerW"}:
+                return False
             rect = wintypes.RECT()
             ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
             width = rect.right - rect.left
