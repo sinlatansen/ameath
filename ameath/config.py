@@ -2,7 +2,12 @@ import json
 import os
 import sys
 
-from .constants import CONFIG_FILE, DEFAULT_SCALE_INDEX, DEFAULT_TRANSPARENCY_INDEX
+from .constants import (
+    CONFIG_FILE,
+    DEFAULT_SCALE_INDEX,
+    DEFAULT_TRANSPARENCY_INDEX,
+    DEFAULT_WANDER_IDLE_STAY_MODE,
+)
 
 
 def load_config():
@@ -18,6 +23,7 @@ def load_config():
             "click_through": True,
             "follow_mouse": False,
             "display_priority": 1,
+            "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
         }
 
 

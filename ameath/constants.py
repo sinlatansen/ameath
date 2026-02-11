@@ -6,6 +6,7 @@ SCALE_OPTIONS = [round(i / 10, 1) for i in range(1, 21)]  # 缩放档位（0.1x 
 DEFAULT_SCALE_INDEX = 9
 TRANSPARENCY_OPTIONS = [round(i / 10, 1) for i in range(1, 11)]  # 透明度档位（0.1=10%）
 DEFAULT_TRANSPARENCY_INDEX = 9  # 默认不透明
+DEFAULT_WANDER_IDLE_STAY_MODE = 1  # 游荡模式停驻行为：0始终移动/1概率停驻/2停驻
 
 # 软件信息
 AUTHOR_BILIBILI = "-fugu-"

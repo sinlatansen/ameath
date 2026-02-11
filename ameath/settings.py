@@ -14,6 +14,7 @@ from .constants import (
     GITEE_RELEASES_URL,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
+    DEFAULT_WANDER_IDLE_STAY_MODE,
 )
 from .utils import resource_path, check_update
 
@@ -264,6 +265,9 @@ class SettingsWindow:
         )
         current_auto_startup = config.get("auto_startup", False)
         current_display_priority = config.get("display_priority", 1)
+        current_wander_idle_stay_mode = config.get(
+            "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
+        )
 
         # ===== 缩放设置 =====
         scale_frame = tk.LabelFrame(
@@ -430,6 +434,43 @@ class SettingsWindow:
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22, pady=(6, 0))
+
+        # ===== 游荡停驻设置 =====
+        wander_idle_frame = tk.LabelFrame(
+            inner_frame,
+            text="游荡模式下是否停驻播放idle动作",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        wander_idle_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        self.wander_idle_stay_mode_var = tk.IntVar(value=current_wander_idle_stay_mode)
+        wander_idle_options = [
+            ("始终移动", 0),
+            ("概率停驻", 1),
+            ("停驻", 2),
+        ]
+        for text, value in wander_idle_options:
+            rb = tk.Radiobutton(
+                wander_idle_frame,
+                text=text,
+                variable=self.wander_idle_stay_mode_var,
+                value=value,
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
+                command=self._on_wander_idle_stay_mode_changed,
+                anchor=tk.W,
+            )
+            rb.pack(anchor=tk.W, pady=2)
 
         return frame
 
@@ -749,6 +790,11 @@ class SettingsWindow:
         """显示优先级变化回调"""
         mode = self.display_priority_var.get()
         self.app.set_display_priority(mode)
+
+    def _on_wander_idle_stay_mode_changed(self):
+        """游荡停驻模式变化回调"""
+        mode = self.wander_idle_stay_mode_var.get()
+        self.app.set_wander_idle_stay_mode(mode)
 
     def _on_check_update(self):
         """检查更新按钮回调"""
