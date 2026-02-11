@@ -496,6 +496,12 @@ class DesktopGif:
             self.current_frames = frames
             self.current_delays = delays
             self.frame_index = 0
+        else:
+            # 不播放 idle 动画时，显示随机 idle 静帧
+            frames, delays = random.choice(self.idle_gifs)
+            self.current_frames = frames
+            self.current_delays = delays
+            self.frame_index = random.randint(0, max(0, len(frames) - 1))
 
         stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
         self.root.after(stop_duration, self.switch_to_move)
