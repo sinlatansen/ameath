@@ -4,6 +4,8 @@
 
 <p align="center">
   <img src="gifs/ameath.gif" alt="Ameath 桌面宠物" width="50%">
+  </br>
+  <img src="https://img.shields.io/static/v1?label=Bilibili&message=-fugu-&color=00A1D6&style=flat-square&logo=bilibili&logoColor=white" alt="-fugu- B站主页">
 </p>
 
 ## ✨ 特色功能
@@ -26,6 +28,9 @@
 
 📹 **介绍视频**：[【我制作了飞行雪绒可爱桌宠！win平台，低占用】](https://www.bilibili.com/video/BV12rcMznEcG)
 
+把exe文件放到自己熟悉的任意地方，运行后没找到系统托盘的话，请检查win系统托盘折叠菜单。
+自v1.1.5开始就支持自动无感更新，不再需要手动前往各渠道下载。
+
 ### Release 下载
 
 前往 [Gitee Release](https://gitee.com/lzy-buaa-jdi/ameath/releases) 下载最新版本的打包程序。
@@ -35,24 +40,9 @@
 链接：<https://pan.quark.cn/s/9d90dc358cb1?pwd=9HQZ>  
 提取码：`9HQZ`
 
-## 🎮 使用说明
+### 百度网盘
 
-1. **启动程序** - 双击 `ameath.exe` 启动桌面宠物
-2. **托盘菜单** - 右键点击系统托盘图标进行设置
-3. **快捷操作** - 左键点击宠物可拖动（需关闭鼠标穿透）
-
-### 功能说明
-
-| 功能 | 操作 | 说明 |
-|------|------|------|
-| 🖼️ **隐藏/显示** | 托盘菜单切换 | 隐藏或显示宠物窗口 |
-| ⏸️ **暂停/继续** | 托盘菜单切换 | 暂停或恢复宠物活动 |
-| 🐭 **跟随鼠标** | 托盘菜单勾选 | 开启后宠物会跟随鼠标移动 |
-| 👆 **鼠标穿透** | 托盘菜单勾选 | 开启后鼠标可以穿透宠物，不遮挡操作 |
-| 🔄 **开机自启** | 托盘菜单勾选 | 开机自动运行 |
-| 📐 **缩放** | 托盘子菜单 | 调整宠物大小（0.3x ~ 1.9x） |
-| 👻 **透明度** | 托盘子菜单 | 调整宠物透明度（30% ~ 100%） |
-| 🚪 **退出** | 托盘菜单 | 退出程序 |
+链接：https://pan.baidu.com/s/5HXkAlr2SHP_COt3j25v2ng 
 
 ## 🤝 贡献
 
