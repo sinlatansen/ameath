@@ -1,6 +1,7 @@
 """设置窗口模块 - 包含个性化、检查更新、关于三个标签页"""
 
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import ttk
 import webbrowser
 import threading
@@ -16,7 +17,7 @@ from .constants import (
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
 )
-from .utils import resource_path, check_update
+from .utils import resource_path, check_update, download_and_update
 
 
 class SettingsWindow:
@@ -31,6 +32,9 @@ class SettingsWindow:
         self.notebook = None
         self.update_frame = None
         self.latest_version = None
+        self._latest_asset_url = None
+        self._latest_asset_name = None
+        self._download_thread = None
         self._restore_display_priority = None
         self.colors = {
             "bg": "#FFF1F6",
@@ -602,8 +606,8 @@ class SettingsWindow:
 
         self.download_btn = tk.Button(
             button_left,
-            text="前往下载",
-            command=lambda: webbrowser.open(GITEE_RELEASES_URL),
+            text="下载并更新",
+            command=self._on_download_update,
             font=self.fonts["base"],
             width=12,
             bg=self.colors["accent"],
@@ -805,6 +809,8 @@ class SettingsWindow:
         self.download_btn.config(state=tk.DISABLED)
         self.skip_btn.config(state=tk.DISABLED)
         self.latest_version = None
+        self._latest_asset_url = None
+        self._latest_asset_name = None
 
         # 在新线程中检查更新
         self._update_check_thread = threading.Thread(
@@ -836,8 +842,10 @@ class SettingsWindow:
             )
             return
 
-        latest_version, release_notes = result
+        latest_version, release_notes, asset_url, asset_name = result
         self.latest_version = latest_version
+        self._latest_asset_url = asset_url
+        self._latest_asset_name = asset_name
 
         # 比较版本号
         current_parts = self.version.split(".")
@@ -870,7 +878,13 @@ class SettingsWindow:
             self.release_notes_text.config(state=tk.DISABLED)
 
             # 启用下载按钮
-            self.download_btn.config(state=tk.NORMAL)
+            if self._latest_asset_url:
+                self.download_btn.config(state=tk.NORMAL)
+            else:
+                self.download_btn.config(state=tk.DISABLED)
+                self.update_status_label.config(
+                    text="未找到可下载的更新文件", fg="#D24B4B"
+                )
             self.skip_btn.config(state=tk.NORMAL)
         else:
             self.update_status_label.config(
@@ -878,10 +892,52 @@ class SettingsWindow:
             )
             self.latest_version_label.config(text="")
             self.latest_version = None
+            self._latest_asset_url = None
+            self._latest_asset_name = None
             self.release_notes_text.config(state=tk.NORMAL)
             self.release_notes_text.delete("1.0", tk.END)
             self.release_notes_text.insert(tk.END, "您正在使用最新版本，无需更新。")
             self.release_notes_text.config(state=tk.DISABLED)
+
+    def _on_download_update(self):
+        """下载并更新"""
+        if not self._latest_asset_url or not self._latest_asset_name:
+            self.update_status_label.config(text="未找到可下载的更新文件", fg="#D24B4B")
+            return
+
+        self.download_btn.config(state=tk.DISABLED)
+        self.skip_btn.config(state=tk.DISABLED)
+        self.check_btn.config(state=tk.DISABLED)
+        self.update_status_label.config(
+            text="正在下载更新，请稍候...", fg=self.colors["accent_dark"]
+        )
+
+        self._download_thread = threading.Thread(
+            target=self._do_download_update, daemon=True
+        )
+        self._download_thread.start()
+
+    def _do_download_update(self):
+        """执行下载并更新（后台线程）"""
+        error = download_and_update(self._latest_asset_url, self._latest_asset_name)
+        if self.window and self.window.winfo_exists():
+            if error:
+                self.window.after(0, lambda: self._on_update_error(error))
+            else:
+                self.window.after(0, self._on_update_ready)
+
+    def _on_update_ready(self):
+        """下载完成，准备更新"""
+        self.update_status_label.config(
+            text="下载完成，已更新，请手动重新打开程序", fg=self.colors["accent"]
+        )
+        self.download_btn.config(text="更新完成，请手动启动", state=tk.DISABLED)
+        self.skip_btn.config(state=tk.DISABLED)
+        messagebox.showinfo("更新完成", "更新已完成，请手动重新打开程序。")
+        if self.app:
+            self.app._request_quit = True
+        if self.window:
+            self.window.destroy()
 
     def _on_update_error(self, error_msg):
         """更新检查错误回调"""
