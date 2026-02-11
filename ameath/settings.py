@@ -30,6 +30,51 @@ class SettingsWindow:
         self.notebook = None
         self.update_frame = None
         self.latest_version = None
+        self.colors = {
+            "bg": "#FFF1F6",
+            "card_bg": "#FFFFFF",
+            "border": "#F3C2D4",
+            "accent": "#FF69B4",
+            "accent_dark": "#E84D8E",
+            "text": "#4A2A3A",
+            "subtext": "#7A5564",
+            "tab_bg": "#FFE1EE",
+            "tab_active": "#FFD1E5",
+        }
+        self.fonts = {
+            "title": ("Microsoft YaHei UI", 12, "bold"),
+            "subtitle": ("Microsoft YaHei UI", 11, "bold"),
+            "base": ("Microsoft YaHei UI", 10),
+            "small": ("Microsoft YaHei UI", 9),
+        }
+
+    def _configure_theme(self):
+        style = ttk.Style(self.window)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+        style.configure("TFrame", background=self.colors["bg"])
+        style.configure(
+            "TLabel",
+            background=self.colors["bg"],
+            foreground=self.colors["text"],
+            font=self.fonts["base"],
+        )
+        style.configure("TNotebook", background=self.colors["bg"], borderwidth=0)
+        style.configure(
+            "TNotebook.Tab",
+            background=self.colors["tab_bg"],
+            foreground=self.colors["text"],
+            padding=(14, 6),
+            font=self.fonts["base"],
+        )
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", self.colors["tab_active"])],
+            foreground=[("selected", self.colors["accent_dark"])],
+        )
+        style.configure("TSeparator", background=self.colors["border"])
 
     def _create_window(self):
         """创建设置窗口（内部方法）"""
@@ -46,6 +91,8 @@ class SettingsWindow:
         self.window.resizable(True, True)
         self.window.attributes("-topmost", True)
         self.window.transient(self.parent)
+        self.window.configure(bg=self.colors["bg"])
+        self._configure_theme()
 
         # 设置窗口图标
         try:
@@ -63,7 +110,7 @@ class SettingsWindow:
         self.window.geometry(f"{window_w}x{window_h}+{x}+{y}")
 
         # 创建主容器
-        main_frame = tk.Frame(self.window)
+        main_frame = tk.Frame(self.window, bg=self.colors["bg"])
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
 
         # 创建标签页
@@ -83,7 +130,7 @@ class SettingsWindow:
         self.notebook.add(self.about_frame, text="关于")
 
         # 关闭按钮区域
-        btn_frame = tk.Frame(main_frame)
+        btn_frame = tk.Frame(main_frame, bg=self.colors["bg"])
         btn_frame.pack(fill=tk.X, pady=(15, 0))
 
         tk.Button(
@@ -91,7 +138,14 @@ class SettingsWindow:
             text="确定",
             command=self._on_close,
             width=12,
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
+            bg=self.colors["accent"],
+            fg="white",
+            activebackground=self.colors["accent_dark"],
+            activeforeground="white",
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
         ).pack(side=tk.RIGHT)
 
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -154,16 +208,20 @@ class SettingsWindow:
         scale_frame = tk.LabelFrame(
             frame,
             text="缩放比例",
-            font=("Microsoft YaHei UI", 11, "bold"),
+            font=self.fonts["subtitle"],
             padx=15,
             pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
         )
         scale_frame.pack(fill=tk.X, pady=(0, 15), ipady=5)
 
         self.scale_var = tk.IntVar(value=current_scale_idx)
 
         # 使用网格布局，多列展示
-        scale_grid = tk.Frame(scale_frame)
+        scale_grid = tk.Frame(scale_frame, bg=self.colors["card_bg"])
         scale_grid.pack(fill=tk.X, pady=5)
 
         scale_columns = 5
@@ -175,7 +233,12 @@ class SettingsWindow:
                 text=f"{scale_val}x",
                 variable=self.scale_var,
                 value=i,
-                font=("Microsoft YaHei UI", 10),
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
                 command=self._on_scale_changed,
                 anchor=tk.W,
             )
@@ -185,16 +248,20 @@ class SettingsWindow:
         trans_frame = tk.LabelFrame(
             frame,
             text="窗口透明度",
-            font=("Microsoft YaHei UI", 11, "bold"),
+            font=self.fonts["subtitle"],
             padx=15,
             pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
         )
         trans_frame.pack(fill=tk.X, pady=(0, 15), ipady=5)
 
         self.transparency_var = tk.IntVar(value=current_transparency_idx)
 
         # 使用网格布局，多列展示
-        trans_grid = tk.Frame(trans_frame)
+        trans_grid = tk.Frame(trans_frame, bg=self.colors["card_bg"])
         trans_grid.pack(fill=tk.X, pady=5)
 
         trans_columns = 5
@@ -206,7 +273,12 @@ class SettingsWindow:
                 text=f"{int(trans_val * 100)}%",
                 variable=self.transparency_var,
                 value=i,
-                font=("Microsoft YaHei UI", 10),
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
                 command=self._on_transparency_changed,
                 anchor=tk.W,
             )
@@ -216,9 +288,13 @@ class SettingsWindow:
         startup_frame = tk.LabelFrame(
             frame,
             text="启动选项",
-            font=("Microsoft YaHei UI", 11, "bold"),
+            font=self.fonts["subtitle"],
             padx=15,
             pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
         )
         startup_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
 
@@ -227,7 +303,12 @@ class SettingsWindow:
             startup_frame,
             text="开机时自动启动程序",
             variable=self.auto_startup_var,
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
             command=self._on_startup_changed,
             anchor=tk.W,
         )
@@ -237,8 +318,9 @@ class SettingsWindow:
         tk.Label(
             startup_frame,
             text="开启后，系统启动时将自动运行桌面宠物",
-            font=("Microsoft YaHei UI", 9),
-            fg="#666666",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22)
 
@@ -254,13 +336,15 @@ class SettingsWindow:
         current_skip_updates = config.get("skip_updates", False)
 
         # 当前版本信息
-        version_frame = tk.Frame(frame)
+        version_frame = tk.Frame(frame, bg=self.colors["bg"])
         version_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
 
         tk.Label(
             version_frame,
             text=f"当前版本: {self.version}",
-            font=("Microsoft YaHei UI", 12),
+            font=self.fonts["title"],
+            fg=self.colors["accent_dark"],
+            bg=self.colors["bg"],
         ).pack(anchor=tk.W)
 
         # 分隔线
@@ -272,10 +356,14 @@ class SettingsWindow:
             frame,
             text="检查更新",
             command=self._on_check_update,
-            font=("Microsoft YaHei UI", 11),
+            font=self.fonts["subtitle"],
             width=14,
-            bg="#1890FF",
+            bg=self.colors["accent"],
             fg="white",
+            activebackground=self.colors["accent_dark"],
+            activeforeground="white",
+            relief=tk.FLAT,
+            bd=0,
             cursor="hand2",
         )
         self.check_btn.grid(row=2, column=0, pady=10)
@@ -284,8 +372,9 @@ class SettingsWindow:
         self.update_status_label = tk.Label(
             frame,
             text="点击上方按钮检查是否有新版本可用",
-            font=("Microsoft YaHei UI", 10),
-            fg="#666666",
+            font=self.fonts["base"],
+            fg=self.colors["subtext"],
+            bg=self.colors["bg"],
         )
         self.update_status_label.grid(row=3, column=0, pady=8)
 
@@ -294,7 +383,7 @@ class SettingsWindow:
         separator2.grid(row=4, column=0, sticky="ew", pady=12)
 
         # 更新信息区域
-        info_container = tk.Frame(frame)
+        info_container = tk.Frame(frame, bg=self.colors["bg"])
         info_container.grid(row=5, column=0, sticky="nsew", pady=5)
         frame.rowconfigure(5, weight=1)
 
@@ -302,7 +391,9 @@ class SettingsWindow:
         self.latest_version_label = tk.Label(
             info_container,
             text="",
-            font=("Microsoft YaHei UI", 11, "bold"),
+            font=self.fonts["subtitle"],
+            fg=self.colors["accent_dark"],
+            bg=self.colors["bg"],
             anchor=tk.W,
         )
         self.latest_version_label.pack(fill=tk.X, pady=(0, 8))
@@ -311,52 +402,69 @@ class SettingsWindow:
         tk.Label(
             info_container,
             text="发布说明:",
-            font=("Microsoft YaHei UI", 10),
-            fg="#333333",
+            font=self.fonts["base"],
+            fg=self.colors["accent_dark"],
+            bg=self.colors["bg"],
             anchor=tk.W,
         ).pack(fill=tk.X, pady=(0, 5))
 
         # 发布说明文本框（带边框和滚动条）
-        text_frame = tk.Frame(info_container, bd=1, relief=tk.SOLID, bg="#cccccc")
+        text_frame = tk.Frame(
+            info_container,
+            bd=1,
+            relief=tk.SOLID,
+            bg=self.colors["border"],
+        )
         text_frame.pack(fill=tk.BOTH, expand=True)
 
         self.release_notes_text = tk.Text(
             text_frame,
             height=9,
             wrap=tk.WORD,
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
             state=tk.DISABLED,
             padx=10,
             pady=10,
             relief=tk.FLAT,
-            bg="#fafafa",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            insertbackground=self.colors["accent_dark"],
         )
         self.release_notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # 滚动条
         scrollbar = tk.Scrollbar(
-            text_frame, command=self.release_notes_text.yview, width=14
+            text_frame,
+            command=self.release_notes_text.yview,
+            width=14,
+            bg=self.colors["tab_bg"],
+            activebackground=self.colors["tab_active"],
+            troughcolor=self.colors["card_bg"],
         )
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.release_notes_text.config(yscrollcommand=scrollbar.set)
 
         # 操作按钮区域
-        self.update_btn_frame = tk.Frame(frame)
+        self.update_btn_frame = tk.Frame(frame, bg=self.colors["bg"])
         self.update_btn_frame.grid(row=6, column=0, sticky="ew", pady=(12, 0))
 
         # 下载和跳过按钮
-        button_left = tk.Frame(self.update_btn_frame)
+        button_left = tk.Frame(self.update_btn_frame, bg=self.colors["bg"])
         button_left.pack(side=tk.LEFT)
 
         self.download_btn = tk.Button(
             button_left,
             text="前往下载",
             command=lambda: webbrowser.open(GITEE_RELEASES_URL),
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
             width=12,
-            bg="#1890FF",
+            bg=self.colors["accent"],
             fg="white",
+            activebackground=self.colors["accent_dark"],
+            activeforeground="white",
             state=tk.DISABLED,
+            relief=tk.FLAT,
+            bd=0,
             cursor="hand2",
         )
         self.download_btn.pack(side=tk.LEFT, padx=(0, 10))
@@ -365,8 +473,14 @@ class SettingsWindow:
             button_left,
             text="跳过此版本",
             command=self._on_skip_version,
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
             width=12,
+            bg=self.colors["tab_bg"],
+            fg=self.colors["accent_dark"],
+            activebackground=self.colors["tab_active"],
+            activeforeground=self.colors["accent_dark"],
+            relief=tk.FLAT,
+            bd=0,
             state=tk.DISABLED,
             cursor="hand2",
         )
@@ -378,7 +492,12 @@ class SettingsWindow:
             self.update_btn_frame,
             text="不接收更新提醒",
             variable=self.skip_updates_var,
-            font=("Microsoft YaHei UI", 10),
+            font=self.fonts["base"],
+            bg=self.colors["bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
             command=self._on_skip_updates_changed,
         )
         skip_updates_cb.pack(side=tk.RIGHT)
@@ -390,14 +509,14 @@ class SettingsWindow:
         frame = ttk.Frame(parent, padding=20)
 
         # 顶部留白
-        tk.Frame(frame, height=15).pack()
+        tk.Frame(frame, height=15, bg=self.colors["bg"]).pack()
 
         # 显示 ameath.gif
         try:
             gif_image = Image.open(resource_path("gifs/ameath.gif"))
             gif_image = gif_image.resize((100, 100), Image.Resampling.LANCZOS)
             gif_photo = ImageTk.PhotoImage(gif_image)
-            gif_label = tk.Label(frame, image=gif_photo, border=0)
+            gif_label = tk.Label(frame, image=gif_photo, border=0, bg=self.colors["bg"])
             gif_label.image = gif_photo  # type: ignore[attr-defined]
             gif_label.pack(pady=(0, 15))
         except Exception as e:
@@ -408,14 +527,17 @@ class SettingsWindow:
             frame,
             text="飞吧，朝向春天",
             font=("Microsoft YaHei UI", 20, "bold"),
+            fg=self.colors["accent_dark"],
+            bg=self.colors["bg"],
         ).pack(pady=(0, 10))
 
         # 版本号
         tk.Label(
             frame,
             text=f"版本 {self.version}",
-            font=("Microsoft YaHei UI", 11),
-            fg="#666666",
+            font=self.fonts["base"],
+            fg=self.colors["subtext"],
+            bg=self.colors["bg"],
         ).pack(pady=(0, 20))
 
         # 分隔线
@@ -423,7 +545,7 @@ class SettingsWindow:
         separator.pack(fill=tk.X, pady=10)
 
         # 描述文本
-        desc_frame = tk.Frame(frame)
+        desc_frame = tk.Frame(frame, bg=self.colors["bg"])
         desc_frame.pack(pady=15)
 
         desc_lines = [
@@ -436,8 +558,9 @@ class SettingsWindow:
             tk.Label(
                 desc_frame,
                 text=line,
-                font=("Microsoft YaHei UI", 11),
-                fg="#555555",
+                font=self.fonts["base"],
+                fg=self.colors["text"],
+                bg=self.colors["bg"],
                 justify=tk.CENTER,
             ).pack(pady=2)
 
@@ -446,40 +569,46 @@ class SettingsWindow:
         separator2.pack(fill=tk.X, pady=10)
 
         # 链接区域
-        links_frame = tk.Frame(frame)
+        links_frame = tk.Frame(frame, bg=self.colors["bg"])
         links_frame.pack(pady=10)
 
         # Gitee Release 链接
-        link1 = tk.Frame(links_frame)
+        link1 = tk.Frame(links_frame, bg=self.colors["bg"])
         link1.pack(pady=5)
         tk.Label(
             link1,
             text="软件发布页: ",
-            font=("Microsoft YaHei UI", 11),
+            font=self.fonts["base"],
+            fg=self.colors["text"],
+            bg=self.colors["bg"],
         ).pack(side=tk.LEFT)
         link1_text = tk.Label(
             link1,
             text="Gitee Release",
-            font=("Microsoft YaHei UI", 11),
-            fg="#1890FF",
+            font=self.fonts["base"],
+            fg=self.colors["accent"],
+            bg=self.colors["bg"],
             cursor="hand2",
         )
         link1_text.pack(side=tk.LEFT)
         link1_text.bind("<Button-1>", lambda e: webbrowser.open(GITEE_RELEASES_URL))
 
         # B站链接
-        link2 = tk.Frame(links_frame)
+        link2 = tk.Frame(links_frame, bg=self.colors["bg"])
         link2.pack(pady=5)
         tk.Label(
             link2,
             text="作者: ",
-            font=("Microsoft YaHei UI", 11),
+            font=self.fonts["base"],
+            fg=self.colors["text"],
+            bg=self.colors["bg"],
         ).pack(side=tk.LEFT)
         link2_text = tk.Label(
             link2,
             text="b站-fugu-",
-            font=("Microsoft YaHei UI", 11),
-            fg="#1890FF",
+            font=self.fonts["base"],
+            fg=self.colors["accent"],
+            bg=self.colors["bg"],
             cursor="hand2",
         )
         link2_text.pack(side=tk.LEFT)
@@ -512,7 +641,9 @@ class SettingsWindow:
     def _on_check_update(self):
         """检查更新按钮回调"""
         self.check_btn.config(state=tk.DISABLED)
-        self.update_status_label.config(text="正在检查更新，请稍候...", fg="blue")
+        self.update_status_label.config(
+            text="正在检查更新，请稍候...", fg=self.colors["accent_dark"]
+        )
         self.download_btn.config(state=tk.DISABLED)
         self.skip_btn.config(state=tk.DISABLED)
         self.latest_version = None
@@ -542,7 +673,9 @@ class SettingsWindow:
         self.check_btn.config(state=tk.NORMAL)
 
         if result is None:
-            self.update_status_label.config(text="检查更新失败，请稍后重试", fg="red")
+            self.update_status_label.config(
+                text="检查更新失败，请稍后重试", fg="#D24B4B"
+            )
             return
 
         latest_version, release_notes = result
@@ -567,7 +700,9 @@ class SettingsWindow:
                 is_newer = True
 
         if is_newer:
-            self.update_status_label.config(text="发现新版本可用！", fg="#52c41a")
+            self.update_status_label.config(
+                text="发现新版本可用！", fg=self.colors["accent"]
+            )
             self.latest_version_label.config(text=f"最新版本: {latest_version}")
 
             # 显示发布说明
@@ -580,7 +715,9 @@ class SettingsWindow:
             self.download_btn.config(state=tk.NORMAL)
             self.skip_btn.config(state=tk.NORMAL)
         else:
-            self.update_status_label.config(text="当前已是最新版本", fg="#52c41a")
+            self.update_status_label.config(
+                text="当前已是最新版本", fg=self.colors["accent"]
+            )
             self.latest_version_label.config(text="")
             self.latest_version = None
             self.release_notes_text.config(state=tk.NORMAL)
@@ -591,19 +728,22 @@ class SettingsWindow:
     def _on_update_error(self, error_msg):
         """更新检查错误回调"""
         self.check_btn.config(state=tk.NORMAL)
-        self.update_status_label.config(text=f"检查失败: {error_msg}", fg="red")
+        self.update_status_label.config(text=f"检查失败: {error_msg}", fg="#D24B4B")
 
     def _on_skip_version(self):
         """跳过此版本"""
         if not self.latest_version:
-            self.update_status_label.config(text="当前没有可跳过的版本", fg="#fa8c16")
+            self.update_status_label.config(
+                text="当前没有可跳过的版本", fg=self.colors["accent_dark"]
+            )
             return
         config = load_config()
         config["skip_version"] = self.latest_version
         save_config(config)
         self.skip_btn.config(state=tk.DISABLED)
         self.update_status_label.config(
-            text=f"已设置为不再提醒版本 {self.latest_version}", fg="#fa8c16"
+            text=f"已设置为不再提醒版本 {self.latest_version}",
+            fg=self.colors["accent_dark"],
         )
 
     def _on_skip_updates_changed(self):
@@ -613,9 +753,13 @@ class SettingsWindow:
         config["skip_updates"] = enabled
         save_config(config)
         if enabled:
-            self.update_status_label.config(text="已关闭更新提醒", fg="#fa8c16")
+            self.update_status_label.config(
+                text="已关闭更新提醒", fg=self.colors["accent_dark"]
+            )
         else:
-            self.update_status_label.config(text="已开启更新提醒", fg="#52c41a")
+            self.update_status_label.config(
+                text="已开启更新提醒", fg=self.colors["accent"]
+            )
 
 
 def show_settings_dialog(parent, app, version):
