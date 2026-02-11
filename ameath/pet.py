@@ -33,6 +33,7 @@ from .constants import (
     REST_DURATION_MAX,
     REST_DURATION_MIN,
     SCALE_OPTIONS,
+    SCALE_CUSTOMIZE,
     SPEED_CURIOUS,
     SPEED_FOLLOW,
     SPEED_WANDER,
@@ -72,8 +73,13 @@ class DesktopGif:
         # 加载配置
         config = load_config()
         self.scale_index = config.get("scale_index", DEFAULT_SCALE_INDEX)
+        self.scale_customize = config.get("scale_customize", SCALE_CUSTOMIZE)
         self.auto_startup = config.get("auto_startup", False)
-        self.scale = SCALE_OPTIONS[self.scale_index]
+        # 注意索引需要和缩放档位的“自定义”所在对应
+        if self.scale_index == 9:
+            self.scale = self.scale_customize
+        else:
+            self.scale = SCALE_OPTIONS[self.scale_index]
 
         # 检查开机自启路径是否正确（exe移动后自动修复）
         check_and_fix_startup()
@@ -242,9 +248,15 @@ class DesktopGif:
     def set_scale(self, index):
         """设置缩放"""
         self.scale_index = index
-        self.scale = SCALE_OPTIONS[index]
+        # 注意索引需要和缩放档位的“自定义”所在对应
+        if self.scale_index == 9:
+            self.scale = self.scale_customize
+        else:
+            self.scale = SCALE_OPTIONS[index]
         config = load_config()
         config["scale_index"] = index
+        #预留后续设置面板修改
+        #config["scale_customize"] = SCALE_CUSTOMIZE
         save_config(config)
 
         # 重新加载GIF (使用 resource_path 支持打包)

@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from .constants import CONFIG_FILE, DEFAULT_SCALE_INDEX, DEFAULT_TRANSPARENCY_INDEX
+from .constants import CONFIG_FILE, DEFAULT_SCALE_INDEX,SCALE_CUSTOMIZE, DEFAULT_TRANSPARENCY_INDEX
 
 
 def load_config():
@@ -13,6 +13,7 @@ def load_config():
     except Exception:
         return {
             "scale_index": DEFAULT_SCALE_INDEX,
+            "scale_customize": SCALE_CUSTOMIZE,
             "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
             "auto_startup": False,
             "click_through": True,
