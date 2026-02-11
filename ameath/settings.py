@@ -52,6 +52,7 @@ class SettingsWindow:
             "subtitle": ("Microsoft YaHei UI", 11, "bold"),
             "base": ("Microsoft YaHei UI", 10),
             "small": ("Microsoft YaHei UI", 9),
+            "control": ("Microsoft YaHei UI", 11),
         }
 
     def _configure_theme(self):
@@ -72,13 +73,15 @@ class SettingsWindow:
             "TNotebook.Tab",
             background=self.colors["tab_bg"],
             foreground=self.colors["text"],
-            padding=(14, 6),
+            padding=(12, 5),
             font=self.fonts["base"],
         )
         style.map(
             "TNotebook.Tab",
             background=[("selected", self.colors["tab_active"])],
             foreground=[("selected", self.colors["accent_dark"])],
+            padding=[("selected", (18, 8))],
+            font=[("selected", self.fonts["subtitle"])],
         )
         style.configure("TSeparator", background=self.colors["border"])
 
@@ -302,7 +305,7 @@ class SettingsWindow:
                 text=f"{scale_val}x",
                 variable=self.scale_var,
                 value=i,
-                font=self.fonts["base"],
+                font=self.fonts["control"],
                 bg=self.colors["card_bg"],
                 fg=self.colors["text"],
                 activebackground=self.colors["card_bg"],
@@ -342,7 +345,7 @@ class SettingsWindow:
                 text=f"{int(trans_val * 100)}%",
                 variable=self.transparency_var,
                 value=i,
-                font=self.fonts["base"],
+                font=self.fonts["control"],
                 bg=self.colors["card_bg"],
                 fg=self.colors["text"],
                 activebackground=self.colors["card_bg"],
@@ -372,7 +375,7 @@ class SettingsWindow:
             startup_frame,
             text="开机时自动启动程序",
             variable=self.auto_startup_var,
-            font=self.fonts["base"],
+            font=self.fonts["control"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
             activebackground=self.colors["card_bg"],
@@ -419,7 +422,7 @@ class SettingsWindow:
                 text=text,
                 variable=self.display_priority_var,
                 value=value,
-                font=self.fonts["base"],
+                font=self.fonts["control"],
                 bg=self.colors["card_bg"],
                 fg=self.colors["text"],
                 activebackground=self.colors["card_bg"],
@@ -465,7 +468,7 @@ class SettingsWindow:
                 text=text,
                 variable=self.wander_idle_stay_mode_var,
                 value=value,
-                font=self.fonts["base"],
+                font=self.fonts["control"],
                 bg=self.colors["card_bg"],
                 fg=self.colors["text"],
                 activebackground=self.colors["card_bg"],
@@ -644,7 +647,7 @@ class SettingsWindow:
             self.update_btn_frame,
             text="不接收更新提醒",
             variable=self.skip_updates_var,
-            font=self.fonts["base"],
+            font=self.fonts["control"],
             bg=self.colors["bg"],
             fg=self.colors["text"],
             activebackground=self.colors["bg"],
