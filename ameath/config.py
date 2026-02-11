@@ -4,6 +4,7 @@ import sys
 
 from .constants import (
     CONFIG_FILE,
+    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -17,6 +18,8 @@ def load_config():
             return json.load(f)
     except Exception:
         return {
+            "total_screen": True,
+            "screen_index": DEFAULT_SCREEN_INDEX,
             "scale_index": DEFAULT_SCALE_INDEX,
             "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
             "auto_startup": False,
