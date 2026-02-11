@@ -29,14 +29,21 @@ class SettingsWindow:
         self._update_check_thread = None
         self.notebook = None
         self.update_frame = None
+        self.latest_version = None
 
     def _create_window(self):
         """创建设置窗口（内部方法）"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("设置")
-        # 窗口尺寸: 1000x800
-        self.window.geometry("1000x800")
-        self.window.resizable(False, False)
+        # 窗口尺寸: 1000x800（自适应屏幕）
+        self.window.update_idletasks()
+        screen_w = self.window.winfo_screenwidth()
+        screen_h = self.window.winfo_screenheight()
+        window_w = min(1000, max(600, screen_w - 80))
+        window_h = min(800, max(520, screen_h - 80))
+        self.window.geometry(f"{window_w}x{window_h}")
+        self.window.minsize(min(900, window_w), min(650, window_h))
+        self.window.resizable(True, True)
         self.window.attributes("-topmost", True)
         self.window.transient(self.parent)
 
@@ -51,12 +58,9 @@ class SettingsWindow:
             pass
 
         # 居中显示
-        self.window.update_idletasks()
-        screen_w = self.window.winfo_screenwidth()
-        screen_h = self.window.winfo_screenheight()
-        x = (screen_w - 1000) // 2
-        y = (screen_h - 800) // 2
-        self.window.geometry(f"+{x}+{y}")
+        x = max((screen_w - window_w) // 2, 0)
+        y = max((screen_h - window_h) // 2, 0)
+        self.window.geometry(f"{window_w}x{window_h}+{x}+{y}")
 
         # 创建主容器
         main_frame = tk.Frame(self.window)
@@ -158,13 +162,14 @@ class SettingsWindow:
 
         self.scale_var = tk.IntVar(value=current_scale_idx)
 
-        # 使用网格布局，3行3列
+        # 使用网格布局，多列展示
         scale_grid = tk.Frame(scale_frame)
         scale_grid.pack(fill=tk.X, pady=5)
 
+        scale_columns = 5
         for i, scale_val in enumerate(SCALE_OPTIONS):
-            row = i // 3
-            col = i % 3
+            row = i // scale_columns
+            col = i % scale_columns
             rb = tk.Radiobutton(
                 scale_grid,
                 text=f"{scale_val}x",
@@ -188,13 +193,14 @@ class SettingsWindow:
 
         self.transparency_var = tk.IntVar(value=current_transparency_idx)
 
-        # 使用网格布局，2行4列
+        # 使用网格布局，多列展示
         trans_grid = tk.Frame(trans_frame)
         trans_grid.pack(fill=tk.X, pady=5)
 
+        trans_columns = 5
         for i, trans_val in enumerate(TRANSPARENCY_OPTIONS):
-            row = i // 4
-            col = i % 4
+            row = i // trans_columns
+            col = i % trans_columns
             rb = tk.Radiobutton(
                 trans_grid,
                 text=f"{int(trans_val * 100)}%",
@@ -241,6 +247,7 @@ class SettingsWindow:
     def _create_update_tab(self, parent):
         """创建检查更新标签页"""
         frame = ttk.Frame(parent, padding=20)
+        frame.columnconfigure(0, weight=1)
 
         # 加载当前配置
         config = load_config()
@@ -248,7 +255,7 @@ class SettingsWindow:
 
         # 当前版本信息
         version_frame = tk.Frame(frame)
-        version_frame.pack(fill=tk.X, pady=(0, 15))
+        version_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
 
         tk.Label(
             version_frame,
@@ -258,7 +265,7 @@ class SettingsWindow:
 
         # 分隔线
         separator = ttk.Separator(frame, orient="horizontal")
-        separator.pack(fill=tk.X, pady=12)
+        separator.grid(row=1, column=0, sticky="ew", pady=12)
 
         # 检查更新按钮
         self.check_btn = tk.Button(
@@ -271,7 +278,7 @@ class SettingsWindow:
             fg="white",
             cursor="hand2",
         )
-        self.check_btn.pack(pady=10)
+        self.check_btn.grid(row=2, column=0, pady=10)
 
         # 状态标签
         self.update_status_label = tk.Label(
@@ -280,15 +287,16 @@ class SettingsWindow:
             font=("Microsoft YaHei UI", 10),
             fg="#666666",
         )
-        self.update_status_label.pack(pady=8)
+        self.update_status_label.grid(row=3, column=0, pady=8)
 
         # 分隔线
         separator2 = ttk.Separator(frame, orient="horizontal")
-        separator2.pack(fill=tk.X, pady=12)
+        separator2.grid(row=4, column=0, sticky="ew", pady=12)
 
         # 更新信息区域
         info_container = tk.Frame(frame)
-        info_container.pack(fill=tk.BOTH, expand=True, pady=5)
+        info_container.grid(row=5, column=0, sticky="nsew", pady=5)
+        frame.rowconfigure(5, weight=1)
 
         # 最新版本标签
         self.latest_version_label = tk.Label(
@@ -314,7 +322,7 @@ class SettingsWindow:
 
         self.release_notes_text = tk.Text(
             text_frame,
-            height=12,
+            height=9,
             wrap=tk.WORD,
             font=("Microsoft YaHei UI", 10),
             state=tk.DISABLED,
@@ -334,7 +342,7 @@ class SettingsWindow:
 
         # 操作按钮区域
         self.update_btn_frame = tk.Frame(frame)
-        self.update_btn_frame.pack(fill=tk.X, pady=(15, 0))
+        self.update_btn_frame.grid(row=6, column=0, sticky="ew", pady=(12, 0))
 
         # 下载和跳过按钮
         button_left = tk.Frame(self.update_btn_frame)
@@ -507,6 +515,7 @@ class SettingsWindow:
         self.update_status_label.config(text="正在检查更新，请稍候...", fg="blue")
         self.download_btn.config(state=tk.DISABLED)
         self.skip_btn.config(state=tk.DISABLED)
+        self.latest_version = None
 
         # 在新线程中检查更新
         self._update_check_thread = threading.Thread(
@@ -537,6 +546,7 @@ class SettingsWindow:
             return
 
         latest_version, release_notes = result
+        self.latest_version = latest_version
 
         # 比较版本号
         current_parts = self.version.split(".")
@@ -572,6 +582,7 @@ class SettingsWindow:
         else:
             self.update_status_label.config(text="当前已是最新版本", fg="#52c41a")
             self.latest_version_label.config(text="")
+            self.latest_version = None
             self.release_notes_text.config(state=tk.NORMAL)
             self.release_notes_text.delete("1.0", tk.END)
             self.release_notes_text.insert(tk.END, "您正在使用最新版本，无需更新。")
@@ -584,11 +595,16 @@ class SettingsWindow:
 
     def _on_skip_version(self):
         """跳过此版本"""
+        if not self.latest_version:
+            self.update_status_label.config(text="当前没有可跳过的版本", fg="#fa8c16")
+            return
         config = load_config()
-        config["skip_updates"] = True
+        config["skip_version"] = self.latest_version
         save_config(config)
         self.skip_btn.config(state=tk.DISABLED)
-        self.update_status_label.config(text="已设置为不再提醒此版本", fg="#fa8c16")
+        self.update_status_label.config(
+            text=f"已设置为不再提醒版本 {self.latest_version}", fg="#fa8c16"
+        )
 
     def _on_skip_updates_changed(self):
         """不接收更新提醒复选框变化回调"""

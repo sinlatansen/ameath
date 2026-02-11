@@ -2,19 +2,10 @@ import os
 
 # ============ 配置 ============
 GIF_DIR = "gifs"
-SCALE_OPTIONS = [0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9]  # 缩放档位（适配高DPI）
-DEFAULT_SCALE_INDEX = 3
-TRANSPARENCY_OPTIONS = [
-    1.0,
-    0.9,
-    0.8,
-    0.7,
-    0.6,
-    0.5,
-    0.4,
-    0.3,
-]  # 透明度档位（1.0=不透明）
-DEFAULT_TRANSPARENCY_INDEX = 0  # 默认不透明
+SCALE_OPTIONS = [round(i / 10, 1) for i in range(1, 21)]  # 缩放档位（0.1x ~ 2.0x）
+DEFAULT_SCALE_INDEX = 9
+TRANSPARENCY_OPTIONS = [round(i / 10, 1) for i in range(1, 11)]  # 透明度档位（0.1=10%）
+DEFAULT_TRANSPARENCY_INDEX = 9  # 默认不透明
 
 # 软件信息
 AUTHOR_BILIBILI = "-fugu-"
