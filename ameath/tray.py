@@ -1,9 +1,11 @@
 import pystray
+import os
+import sys
 from pystray import MenuItem  # 显式导入，解决打包后MenuItem不可用问题
 from PIL import Image
 
 from .config import load_config, save_config, set_auto_startup
-from .constants import SCALE_OPTIONS, TRANSPARENCY_OPTIONS
+from .constants import CONFIG_FILE, SCALE_OPTIONS, TRANSPARENCY_OPTIONS
 from .dialogs import show_about_dialog
 from .utils import resource_path
 
@@ -96,6 +98,22 @@ def create_tray(app, version):
         _make_transparency_handler(i) for i in range(len(TRANSPARENCY_OPTIONS))
     ]
 
+    def open_config():
+        """打开预设的特定文件"""
+        if not os.path.exists(CONFIG_FILE):
+            print("错误", f"文件不存在：\n{CONFIG_FILE}")
+            return
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(CONFIG_FILE)
+            elif sys.platform == "darwin":  # macOS
+                subprocess.run(["open", CONFIG_FILE])
+            else:  # Linux 及其他
+                subprocess.run(["xdg-open", CONFIG_FILE])
+        except Exception as e:
+            print("错误", f"无法打开文件：\n{e}")
+
     def on_about(icon, item):
         """显示关于信息"""
         show_about_dialog(app.root, version)
@@ -157,6 +175,7 @@ def create_tray(app, version):
             ),
             pystray.MenuItem("缩放", scale_menu),
             pystray.MenuItem("透明度", transparency_menu),
+            pystray.MenuItem("打开配置文件", open_config),
             pystray.MenuItem("关于", on_about),
             pystray.MenuItem("退出", on_quit),
         )
