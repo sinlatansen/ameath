@@ -4,9 +4,11 @@ import os
 import random
 import tkinter as tk
 from typing import Any
+from screeninfo import get_monitors
 
 from .config import load_config, save_config, check_and_fix_startup
 from .constants import (
+    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -76,6 +78,8 @@ class DesktopGif:
 
         # 加载配置
         config = load_config()
+        self.total_screen = config.get("total_screen", True)
+        self.screen_index = config.get("screen_index", DEFAULT_SCREEN_INDEX)
         self.scale_index = config.get("scale_index", DEFAULT_SCALE_INDEX)
         self.auto_startup = config.get("auto_startup", False)
         self.scale = SCALE_OPTIONS[self.scale_index]
@@ -84,6 +88,37 @@ class DesktopGif:
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
 
+        # 获取屏幕
+        monitors = get_monitors()
+        if self.screen_index < 0 or self.screen_index +1 > len(monitors):
+            target_monitor = monitors[0]
+            print("屏幕设置非法,使用主屏")
+            config["screen_index"] = 0
+            save_config(config)
+        else:
+            target_monitor = monitors[self.screen_index]
+
+        # 按屏幕模式获取屏幕高度和宽度
+        left = float('inf')
+        top = float('inf')
+        right = float('-inf')
+        bottom = float('-inf')
+        if self.total_screen:
+            # 多屏模式
+            for m in monitors:
+                left = min(left, m.x)
+                top = min(top, m.y)
+                right = max(right, m.x + m.width)
+                bottom = max(bottom, m.y + m.height)
+        else:
+            # 单屏模式
+            left = target_monitor.x
+            top = target_monitor.y
+            right = target_monitor.x + target_monitor.width
+            bottom = target_monitor.y + target_monitor.height
+
+        self.screen_w = right - left
+        self.screen_h = bottom - top
         # 检查开机自启路径是否正确（exe移动后自动修复）
         check_and_fix_startup()
 
@@ -135,8 +170,8 @@ class DesktopGif:
         self.h = self.current_frames[0].height()
 
         # 不要放在 (0,0)
-        self.x = 200
-        self.y = 200
+        self.x = target_monitor.x + 200
+        self.y = target_monitor.y + 200
         root.geometry(f"{self.w}x{self.h}+{self.x}+{self.y}")
 
         # 强制刷新，让 winfo_x/y 生效
@@ -153,9 +188,6 @@ class DesktopGif:
             "transparency_index", DEFAULT_TRANSPARENCY_INDEX
         )
         self.set_transparency(self.transparency_index)
-
-        self.screen_w = root.winfo_screenwidth()
-        self.screen_h = root.winfo_screenheight()
 
         self.vx = SPEED_X
         self.vy = SPEED_Y

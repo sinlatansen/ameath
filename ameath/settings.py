@@ -10,9 +10,11 @@ from PIL import Image, ImageTk
 
 from .config import load_config, save_config, set_auto_startup
 from .constants import (
+    SCREEN_INDEX,
     SCALE_OPTIONS,
     TRANSPARENCY_OPTIONS,
     GITEE_RELEASES_URL,
+    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -266,6 +268,8 @@ class SettingsWindow:
 
         # 加载当前配置
         config = load_config()
+        current_total_screen = config.get("total_screen", True)
+        current_screen_idx = config.get("screen_index", DEFAULT_SCREEN_INDEX)
         current_scale_idx = config.get("scale_index", DEFAULT_SCALE_INDEX)
         current_transparency_idx = config.get(
             "transparency_index", DEFAULT_TRANSPARENCY_INDEX
@@ -397,6 +401,70 @@ class SettingsWindow:
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22)
 
+        # ===== 屏幕设置 =====
+        screen_frame = tk.LabelFrame(
+            inner_frame,
+            text="屏幕设置",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        screen_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        self.total_screen_var = tk.BooleanVar(value=current_total_screen)
+        startup_cb = tk.Checkbutton(
+            screen_frame,
+            text="多屏模式，小爱游荡可以跨屏(重启软件生效)",
+            variable=self.total_screen_var,
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_total_screen_changed,
+            anchor=tk.W,
+        )
+        startup_cb.pack(anchor=tk.W, pady=3)
+
+        #self.screen_var = tk.IntVar(value=current_screen_idx)
+        #
+        ## 使用网格布局，多列展示
+        #screen_grid = tk.Frame(screen_frame, bg=self.colors["card_bg"])
+        #screen_grid.pack(fill=tk.X, pady=5)
+        #
+        #screen_columns = 5
+        #for i, screen_val in enumerate(SCREEN_INDEX):
+        #    row = i // screen_columns
+        #    col = i % screen_columns
+        #    rb = tk.Radiobutton(
+        #        screen_grid,
+        #        text=f"屏幕{int(screen_val)+1}",
+        #        variable=self.screen_var,
+        #        value=i,
+        #        font=self.fonts["control"],
+        #        bg=self.colors["card_bg"],
+        #        fg=self.colors["text"],
+        #        activebackground=self.colors["card_bg"],
+        #        activeforeground=self.colors["accent_dark"],
+        #        selectcolor=self.colors["bg"],
+        #        command=self._on_screen_changed,
+        #        anchor=tk.W,
+        #    )
+        #    rb.grid(row=row, column=col, sticky=tk.W, padx=15, pady=6)
+        #
+        #tk.Label(
+        #    screen_frame,
+        #    text="设置小爱在哪个屏幕游荡",
+        #    font=self.fonts["small"],
+        #    fg=self.colors["subtext"],
+        #    bg=self.colors["card_bg"],
+        #    anchor=tk.W,
+        #).pack(anchor=tk.W, padx=22)
         # ===== 显示优先级设置 =====
         priority_frame = tk.LabelFrame(
             inner_frame,
@@ -856,6 +924,14 @@ class SettingsWindow:
         set_auto_startup(enabled)
         config = load_config()
         config["auto_startup"] = enabled
+        save_config(config)
+
+    def _on_total_screen_changed(self):
+        """多屏模式设置回调"""
+        enabled = self.total_screen_var.get()
+        self.app.screen = enabled
+        config = load_config()
+        config["total_screen"] = enabled
         save_config(config)
 
     def _on_display_priority_changed(self):
