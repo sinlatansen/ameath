@@ -74,6 +74,41 @@ def check_new_version():
     return None
 
 
+def check_update(current_version):
+    """检查更新，返回 (latest_version, release_notes) 或 None"""
+    import re
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(
+            GITEE_RELEASES_URL,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            html = response.read().decode("utf-8")
+
+        # 提取最新版本的标签名
+        pattern = r'href="/lzy-buaa-jdi/ameath/releases/tag/(v[^"]+)"'
+        matches = re.findall(pattern, html)
+        if matches:
+            latest_version = matches[0]
+            # 尝试提取发布说明
+            release_notes = ""
+            # 简单提取HTML中的文本作为发布说明
+            notes_pattern = r'<div class="release-notes[^"]*">(.*?)</div>'
+            notes_matches = re.findall(notes_pattern, html, re.DOTALL)
+            if notes_matches:
+                # 移除HTML标签
+                notes_text = re.sub(r"<[^>]+>", "", notes_matches[0])
+                release_notes = notes_text.strip()
+            return (latest_version, release_notes)
+    except Exception as e:
+        print(f"检查更新失败: {e}")
+    return None
+
+
 def normalize_version(v):
     """标准化版本号用于比较"""
     v = v.lstrip("v")

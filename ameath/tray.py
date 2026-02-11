@@ -2,9 +2,8 @@ import pystray
 from pystray import MenuItem  # 显式导入，解决打包后MenuItem不可用问题
 from PIL import Image
 
-from .config import load_config, save_config, set_auto_startup
-from .constants import SCALE_OPTIONS, TRANSPARENCY_OPTIONS
-from .dialogs import show_about_dialog
+from .config import load_config
+from .settings import show_settings_dialog
 from .utils import resource_path
 
 
@@ -23,15 +22,6 @@ def create_tray(app, version):
 
     # ============ 回调函数 ============
 
-    def on_toggle_startup(icon, item):
-        """切换开机自启"""
-        app.auto_startup = not app.auto_startup
-        set_auto_startup(app.auto_startup)
-        config = load_config()
-        config["auto_startup"] = app.auto_startup
-        save_config(config)
-        icon.menu = _create_menu(app)
-
     def on_toggle_visible(icon, item):
         """切换隐藏/显示"""
         if app.root.state() == "withdrawn":
@@ -45,21 +35,14 @@ def create_tray(app, version):
         app.toggle_pause()
         icon.menu = _create_menu(app)
 
-    def on_set_scale(icon, item, index):
-        """设置缩放"""
-        app.set_scale(index)
-        icon.menu = _create_menu(app)
-
-    def on_quit(icon):
-        """退出（只发信号，主线程统一收尾）"""
-        app._request_quit = True
-
     def on_toggle_click_through(icon, item):
         """切换鼠标穿透"""
         app.click_through = not app.click_through
         app.set_click_through(app.click_through)
         config = load_config()
         config["click_through"] = app.click_through
+        # Import here to avoid circular imports
+        from .config import save_config
         save_config(config)
         icon.menu = _create_menu(app)
 
@@ -68,69 +51,23 @@ def create_tray(app, version):
         app.follow_mouse = not app.follow_mouse
         config = load_config()
         config["follow_mouse"] = app.follow_mouse
+        # Import here to avoid circular imports
+        from .config import save_config
         save_config(config)
         icon.menu = _create_menu(app)
 
-    # 缩放回调工厂
-    def _make_scale_handler(index):
-        def handler(icon, item):
-            on_set_scale(icon, item, index)
+    def on_settings(icon, item):
+        """打开设置窗口"""
+        show_settings_dialog(app.root, app, version)
 
-        return handler
-
-    scale_handlers = [_make_scale_handler(i) for i in range(len(SCALE_OPTIONS))]
-
-    # 透明度回调
-    def on_set_transparency(icon, item, index):
-        """设置透明度"""
-        app.set_transparency(index)
-        icon.menu = _create_menu(app)
-
-    def _make_transparency_handler(index):
-        def handler(icon, item):
-            on_set_transparency(icon, item, index)
-
-        return handler
-
-    transparency_handlers = [
-        _make_transparency_handler(i) for i in range(len(TRANSPARENCY_OPTIONS))
-    ]
-
-    def on_about(icon, item):
-        """显示关于信息"""
-        show_about_dialog(app.root, version)
+    def on_quit(icon):
+        """退出（只发信号，主线程统一收尾）"""
+        app._request_quit = True
 
     # ============ 菜单构建 ============
 
     def _create_menu(app_instance):
         """动态创建菜单"""
-        # 缩放子菜单
-        scale_items = []
-        for i in range(len(SCALE_OPTIONS)):
-            scale_items.append(
-                pystray.MenuItem(
-                    f"{SCALE_OPTIONS[i]}x",
-                    scale_handlers[i],
-                    checked=lambda it, idx=i: app_instance.scale_index == idx,
-                    radio=True,
-                )
-            )
-        scale_menu = pystray.Menu(*scale_items)
-
-        # 透明度子菜单
-        transparency_items = []
-        for i in range(len(TRANSPARENCY_OPTIONS)):
-            label = f"{int(TRANSPARENCY_OPTIONS[i] * 100)}%"
-            transparency_items.append(
-                pystray.MenuItem(
-                    label,
-                    transparency_handlers[i],
-                    checked=lambda it, idx=i: app_instance.transparency_index == idx,
-                    radio=True,
-                )
-            )
-        transparency_menu = pystray.Menu(*transparency_items)
-
         return (
             pystray.MenuItem(
                 "隐藏" if app_instance.root.state() == "normal" else "显示",
@@ -150,14 +87,7 @@ def create_tray(app, version):
                 on_toggle_click_through,
                 checked=lambda it: app_instance.click_through,
             ),
-            pystray.MenuItem(
-                "开机自启",
-                on_toggle_startup,
-                checked=lambda it: app_instance.auto_startup,
-            ),
-            pystray.MenuItem("缩放", scale_menu),
-            pystray.MenuItem("透明度", transparency_menu),
-            pystray.MenuItem("关于", on_about),
+            pystray.MenuItem("设置", on_settings),
             pystray.MenuItem("退出", on_quit),
         )
 
