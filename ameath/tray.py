@@ -99,9 +99,9 @@ def create_tray(app, version):
     ]
 
     def open_config():
-        """打开预设的特定文件"""
+        """打开配置文件"""
         if not os.path.exists(CONFIG_FILE):
-            print("错误", f"文件不存在：\n{CONFIG_FILE}")
+            print("错误", f"配置文件不存在：\n{CONFIG_FILE}")
             return
 
         try:
@@ -112,7 +112,7 @@ def create_tray(app, version):
             else:  # Linux 及其他
                 subprocess.run(["xdg-open", CONFIG_FILE])
         except Exception as e:
-            print("错误", f"无法打开文件：\n{e}")
+            print("错误", f"无法打开配置文件：\n{e}")
 
     def on_about(icon, item):
         """显示关于信息"""
