@@ -30,6 +30,7 @@ class SettingsWindow:
         self.notebook = None
         self.update_frame = None
         self.latest_version = None
+        self._restore_display_priority = None
         self.colors = {
             "bg": "#FFF1F6",
             "card_bg": "#FFFFFF",
@@ -93,6 +94,10 @@ class SettingsWindow:
         self.window.transient(self.parent)
         self.window.configure(bg=self.colors["bg"])
         self._configure_theme()
+
+        if getattr(self.app, "display_priority", None) == 3:
+            self._restore_display_priority = 3
+            self.app.set_display_priority(1, persist=False)
 
         # 设置窗口图标
         try:
@@ -188,13 +193,68 @@ class SettingsWindow:
 
     def _on_close(self):
         """关闭窗口"""
+        if self._restore_display_priority is not None:
+            if getattr(self, "display_priority_var", None) is not None:
+                if self.display_priority_var.get() == self._restore_display_priority:
+                    self.app.set_display_priority(
+                        self._restore_display_priority, persist=False
+                    )
+            self._restore_display_priority = None
         if self.window:
             self.window.destroy()
             self.window = None
 
     def _create_personalization_tab(self, parent):
         """创建个性化标签页"""
-        frame = ttk.Frame(parent, padding=20)
+        frame = ttk.Frame(parent)
+        canvas = tk.Canvas(
+            frame,
+            bg=self.colors["bg"],
+            highlightthickness=0,
+            bd=0,
+        )
+        scrollbar = tk.Scrollbar(
+            frame,
+            orient=tk.VERTICAL,
+            command=canvas.yview,
+            width=12,
+            bg=self.colors["tab_bg"],
+            activebackground=self.colors["tab_active"],
+            troughcolor=self.colors["card_bg"],
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        content = tk.Frame(canvas, bg=self.colors["bg"])
+        inner_frame = tk.Frame(content, bg=self.colors["bg"])
+        inner_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        canvas_window = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def _on_content_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfigure(canvas_window, width=event.width)
+
+        def _on_mousewheel(event):
+            if event.delta:
+                canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+
+        def _bind_mousewheel(_event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(_event):
+            canvas.unbind_all("<MouseWheel>")
+
+        content.bind("<Configure>", _on_content_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
+        content.bind("<Enter>", _bind_mousewheel)
+        content.bind("<Leave>", _unbind_mousewheel)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # 加载当前配置
         config = load_config()
@@ -203,10 +263,11 @@ class SettingsWindow:
             "transparency_index", DEFAULT_TRANSPARENCY_INDEX
         )
         current_auto_startup = config.get("auto_startup", False)
+        current_display_priority = config.get("display_priority", 1)
 
         # ===== 缩放设置 =====
         scale_frame = tk.LabelFrame(
-            frame,
+            inner_frame,
             text="缩放比例",
             font=self.fonts["subtitle"],
             padx=15,
@@ -246,7 +307,7 @@ class SettingsWindow:
 
         # ===== 透明度设置 =====
         trans_frame = tk.LabelFrame(
-            frame,
+            inner_frame,
             text="窗口透明度",
             font=self.fonts["subtitle"],
             padx=15,
@@ -286,7 +347,7 @@ class SettingsWindow:
 
         # ===== 开机自启设置 =====
         startup_frame = tk.LabelFrame(
-            frame,
+            inner_frame,
             text="启动选项",
             font=self.fonts["subtitle"],
             padx=15,
@@ -323,6 +384,52 @@ class SettingsWindow:
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22)
+
+        # ===== 显示优先级设置 =====
+        priority_frame = tk.LabelFrame(
+            inner_frame,
+            text="显示优先级",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        priority_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        self.display_priority_var = tk.IntVar(value=current_display_priority)
+        priority_options = [
+            ("始终置顶", 1),
+            ("全屏时隐藏", 2),
+            ("仅在桌面显示", 3),
+        ]
+        for text, value in priority_options:
+            rb = tk.Radiobutton(
+                priority_frame,
+                text=text,
+                variable=self.display_priority_var,
+                value=value,
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
+                command=self._on_display_priority_changed,
+                anchor=tk.W,
+            )
+            rb.pack(anchor=tk.W, pady=2)
+
+        tk.Label(
+            priority_frame,
+            text="仅在桌面显示：打开应用窗口时会被覆盖",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=22, pady=(6, 0))
 
         return frame
 
@@ -637,6 +744,11 @@ class SettingsWindow:
         config = load_config()
         config["auto_startup"] = enabled
         save_config(config)
+
+    def _on_display_priority_changed(self):
+        """显示优先级变化回调"""
+        mode = self.display_priority_var.get()
+        self.app.set_display_priority(mode)
 
     def _on_check_update(self):
         """检查更新按钮回调"""
