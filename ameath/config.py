@@ -17,6 +17,7 @@ def load_config():
             "auto_startup": False,
             "click_through": True,
             "follow_mouse": False,
+            "display_priority": 1,
         }
 
 

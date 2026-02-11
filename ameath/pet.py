@@ -1,4 +1,5 @@
 import ctypes
+from ctypes import wintypes
 import os
 import random
 import tkinter as tk
@@ -14,6 +15,7 @@ from .constants import (
     FOLLOW_STOP_DIST,
     GIF_DIR,
     GWL_EXSTYLE,
+    HWND_BOTTOM,
     HWND_TOPMOST,
     INERTIA_FACTOR,
     INTENT_FACTOR,
@@ -62,6 +64,8 @@ class DesktopGif:
     def __init__(self, root):
         self.root = root
         self._request_quit = False  # 退出标志（主线程统一收尾）
+        self.display_priority = 1
+        self._hidden_by_fullscreen = False
 
         # 立即设置无边框，避免闪烁
         root.overrideredirect(True)
@@ -74,6 +78,7 @@ class DesktopGif:
         self.scale_index = config.get("scale_index", DEFAULT_SCALE_INDEX)
         self.auto_startup = config.get("auto_startup", False)
         self.scale = SCALE_OPTIONS[self.scale_index]
+        self.display_priority = config.get("display_priority", 1)
 
         # 检查开机自启路径是否正确（exe移动后自动修复）
         check_and_fix_startup()
@@ -169,27 +174,97 @@ class DesktopGif:
         self.root.update_idletasks()
         self.hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
 
-        # 启动轻量级置顶轮询（替代Shell Hook）
-        self.root.after(2000, self.ensure_topmost)
+        # 应用显示优先级
+        self.set_display_priority(self.display_priority, persist=False)
+
+        # 启动轻量级可见性轮询（替代Shell Hook）
+        self.root.after(500, self.ensure_visibility)
 
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
 
-    def ensure_topmost(self):
-        """轻量级置顶轮询（替代Shell Hook）"""
+    def ensure_visibility(self):
+        """轻量级可见性轮询（替代Shell Hook）"""
         try:
-            ctypes.windll.user32.SetWindowPos(
-                self.hwnd,
-                HWND_TOPMOST,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            )
+            if self.display_priority == 1:
+                self._apply_topmost()
+            elif self.display_priority == 2:
+                self._apply_fullscreen_hide()
+            else:
+                self._apply_desktop_only()
         except Exception:
             pass
-        self.root.after(2000, self.ensure_topmost)
+        self.root.after(500, self.ensure_visibility)
+
+    def _apply_topmost(self):
+        if self._hidden_by_fullscreen:
+            self.root.deiconify()
+            self._hidden_by_fullscreen = False
+        self.root.attributes("-topmost", True)
+        ctypes.windll.user32.SetWindowPos(
+            self.hwnd,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+
+    def _apply_fullscreen_hide(self):
+        if self._is_fullscreen_window_active():
+            if not self._hidden_by_fullscreen:
+                self.root.withdraw()
+                self._hidden_by_fullscreen = True
+            return
+        if self._hidden_by_fullscreen:
+            self.root.deiconify()
+            self._hidden_by_fullscreen = False
+        self._apply_topmost()
+
+    def _apply_desktop_only(self):
+        if self._hidden_by_fullscreen:
+            self.root.deiconify()
+            self._hidden_by_fullscreen = False
+        if self._is_desktop_foreground():
+            self._apply_topmost()
+            return
+        self.root.attributes("-topmost", False)
+        ctypes.windll.user32.SetWindowPos(
+            self.hwnd,
+            HWND_BOTTOM,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+
+    def _is_desktop_foreground(self):
+        try:
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if not hwnd:
+                return False
+            class_name = ctypes.create_unicode_buffer(256)
+            ctypes.windll.user32.GetClassNameW(hwnd, class_name, 256)
+            return class_name.value in {"Progman", "WorkerW"}
+        except Exception:
+            return False
+
+    def _is_fullscreen_window_active(self):
+        try:
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if not hwnd or hwnd == self.hwnd:
+                return False
+            rect = wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            width = rect.right - rect.left
+            height = rect.bottom - rect.top
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
+            return width >= screen_w and height >= screen_h
+        except Exception:
+            return False
 
     def check_quit(self):
         """主线程轮询退出标志（确保托盘在主线程正确销毁）"""
@@ -229,6 +304,23 @@ class DesktopGif:
         config = load_config()
         config["transparency_index"] = index
         save_config(config)
+
+    def set_display_priority(self, mode, persist=True):
+        """设置显示优先级"""
+        self.display_priority = mode
+        if persist:
+            config = load_config()
+            config["display_priority"] = mode
+            save_config(config)
+        try:
+            if self.display_priority == 1:
+                self._apply_topmost()
+            elif self.display_priority == 2:
+                self._apply_fullscreen_hide()
+            else:
+                self._apply_desktop_only()
+        except Exception:
+            pass
 
     def stop_drag(self, event):
         """停止拖动"""
