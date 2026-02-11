@@ -275,6 +275,7 @@ class SettingsWindow:
         current_wander_idle_stay_mode = config.get(
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
+        current_instance_count = config.get("instance_count", 1)
 
         # ===== 缩放设置 =====
         scale_frame = tk.LabelFrame(
@@ -441,6 +442,70 @@ class SettingsWindow:
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22, pady=(6, 0))
+
+        # ===== 多开模式 =====
+        multi_frame = tk.LabelFrame(
+            inner_frame,
+            text="多开模式",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        multi_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        multi_row = tk.Frame(multi_frame, bg=self.colors["card_bg"])
+        multi_row.pack(anchor=tk.W, pady=4)
+
+        tk.Label(
+            multi_row,
+            text="实例数量:",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+        ).pack(side=tk.LEFT)
+
+        self.instance_count_var = tk.StringVar(value=str(current_instance_count))
+        self.instance_count_entry = tk.Entry(
+            multi_row,
+            textvariable=self.instance_count_var,
+            width=6,
+            font=self.fonts["control"],
+            bg=self.colors["bg"],
+            fg=self.colors["text"],
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=self.colors["border"],
+            highlightcolor=self.colors["accent"],
+        )
+        self.instance_count_entry.pack(side=tk.LEFT, padx=(8, 8))
+
+        tk.Button(
+            multi_row,
+            text="确定",
+            command=self._on_instance_count_confirm,
+            font=self.fonts["base"],
+            width=6,
+            bg=self.colors["accent"],
+            fg="white",
+            activebackground=self.colors["accent_dark"],
+            activeforeground="white",
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
+        ).pack(side=tk.LEFT)
+
+        tk.Label(
+            multi_frame,
+            text="提示：每个实例约需要60MB运行内存，量力而行",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
 
         # ===== 游荡停驻设置 =====
         wander_idle_frame = tk.LabelFrame(
@@ -803,6 +868,21 @@ class SettingsWindow:
         mode = self.wander_idle_stay_mode_var.get()
         self.app.set_wander_idle_stay_mode(mode)
 
+    def _on_instance_count_confirm(self):
+        """多开数量确认"""
+        try:
+            count = int(self.instance_count_var.get())
+        except ValueError:
+            count = 1
+        if count < 1:
+            count = 1
+        self.instance_count_var.set(str(count))
+        config = load_config()
+        config["instance_count"] = count
+        save_config(config)
+        if hasattr(self.app, "set_instance_count"):
+            self.app.set_instance_count(count)
+
     def _on_check_update(self):
         """检查更新按钮回调"""
         self.check_btn.config(state=tk.DISABLED)
@@ -938,7 +1018,10 @@ class SettingsWindow:
         self.skip_btn.config(state=tk.DISABLED)
         messagebox.showinfo("更新完成", "更新已完成，请手动重新打开程序。")
         if self.app:
-            self.app._request_quit = True
+            if hasattr(self.app, "request_quit"):
+                self.app.request_quit()
+            else:
+                self.app._request_quit = True
         if self.window:
             self.window.destroy()
 

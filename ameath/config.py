@@ -24,6 +24,7 @@ def load_config():
             "follow_mouse": False,
             "display_priority": 1,
             "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
+            "instance_count": 1,
         }
 
 

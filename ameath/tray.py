@@ -24,10 +24,10 @@ def create_tray(app, version):
 
     def on_toggle_visible(icon, item):
         """切换隐藏/显示"""
-        if app.root.state() == "withdrawn":
-            app.root.deiconify()
+        if app.is_visible():
+            app.hide_all()
         else:
-            app.root.withdraw()
+            app.show_all()
         icon.menu = _create_menu(app)
 
     def on_toggle_pause(icon, item):
@@ -37,22 +37,23 @@ def create_tray(app, version):
 
     def on_toggle_click_through(icon, item):
         """切换鼠标穿透"""
-        app.click_through = not app.click_through
-        app.set_click_through(app.click_through)
+        app.set_click_through(not app.click_through)
         config = load_config()
         config["click_through"] = app.click_through
         # Import here to avoid circular imports
         from .config import save_config
+
         save_config(config)
         icon.menu = _create_menu(app)
 
     def on_toggle_follow(icon, item):
         """切换跟随鼠标"""
-        app.follow_mouse = not app.follow_mouse
+        app.set_follow_mouse(not app.follow_mouse)
         config = load_config()
         config["follow_mouse"] = app.follow_mouse
         # Import here to avoid circular imports
         from .config import save_config
+
         save_config(config)
         icon.menu = _create_menu(app)
 
@@ -62,7 +63,10 @@ def create_tray(app, version):
 
     def on_quit(icon):
         """退出（只发信号，主线程统一收尾）"""
-        app._request_quit = True
+        if hasattr(app, "request_quit"):
+            app.request_quit()
+        else:
+            app._request_quit = True
 
     # ============ 菜单构建 ============
 
@@ -70,7 +74,7 @@ def create_tray(app, version):
         """动态创建菜单"""
         return (
             pystray.MenuItem(
-                "隐藏" if app_instance.root.state() == "normal" else "显示",
+                "隐藏" if app_instance.is_visible() else "显示",
                 on_toggle_visible,
             ),
             pystray.MenuItem(
