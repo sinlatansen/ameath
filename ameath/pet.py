@@ -90,7 +90,7 @@ class DesktopGif:
 
         # 获取屏幕
         monitors = get_monitors()
-        if self.screen_index < 0 or self.screen_index +1 > len(monitors):
+        if self.screen_index < 0 or self.screen_index + 1 > len(monitors):
             target_monitor = monitors[0]
             print("屏幕设置非法,使用主屏")
             config["screen_index"] = 0
@@ -99,10 +99,10 @@ class DesktopGif:
             target_monitor = monitors[self.screen_index]
 
         # 按屏幕模式获取屏幕高度和宽度
-        left = float('inf')
-        top = float('inf')
-        right = float('-inf')
-        bottom = float('-inf')
+        left = float("inf")
+        top = float("inf")
+        right = float("-inf")
+        bottom = float("-inf")
         if self.total_screen:
             # 多屏模式
             for m in monitors:
@@ -172,9 +172,9 @@ class DesktopGif:
         self.w = self.current_frames[0].width()
         self.h = self.current_frames[0].height()
 
-        # 不要放在 (0,0)
-        self.x = target_monitor.x + 200
-        self.y = target_monitor.y + 200
+        # 初始出现在屏幕随机位置（配合多开）
+        self.x = random.randint(self.screen_x, self.screen_w - self.w)
+        self.y = random.randint(self.screen_y, self.screen_h - self.h)
         root.geometry(f"{self.w}x{self.h}+{self.x}+{self.y}")
 
         # 强制刷新，让 winfo_x/y 生效
@@ -798,7 +798,7 @@ class DesktopGif:
         if not self.handle_edge():
             # 没出屏时才检查边界碰撞
             hit_edge = False
-            if self.x <= self.screen_x :
+            if self.x <= self.screen_x:
                 self.x = self.screen_x
                 self.vx = abs(self.vx)  # 向右反弹
                 hit_edge = True
