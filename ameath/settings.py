@@ -417,56 +417,138 @@ class SettingsWindow:
         )
         screen_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
 
-        self.total_screen_var = tk.BooleanVar(value=current_total_screen)
-        startup_cb = tk.Checkbutton(
+        # 基础模式选择：单屏 / 多屏
+        self.display_mode_var = tk.StringVar(
+            value="multi" if current_total_screen else "single"
+        )
+
+        single_display_rb = tk.Radiobutton(
             screen_frame,
-            text="多屏模式，小爱游荡可以跨屏(重启软件生效)",
-            variable=self.total_screen_var,
+            text="单屏模式（仅使用一个显示器）",
+            variable=self.display_mode_var,
+            value="single",
             font=self.fonts["control"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
             activebackground=self.colors["card_bg"],
             activeforeground=self.colors["accent_dark"],
             selectcolor=self.colors["bg"],
-            command=self._on_total_screen_changed,
+            command=self._on_display_mode_changed,
             anchor=tk.W,
         )
-        startup_cb.pack(anchor=tk.W, pady=3)
+        single_display_rb.pack(anchor=tk.W, pady=2)
 
-        #self.screen_var = tk.IntVar(value=current_screen_idx)
-        #
-        ## 使用网格布局，多列展示
-        #screen_grid = tk.Frame(screen_frame, bg=self.colors["card_bg"])
-        #screen_grid.pack(fill=tk.X, pady=5)
-        #
-        #screen_columns = 5
-        #for i, screen_val in enumerate(SCREEN_INDEX):
-        #    row = i // screen_columns
-        #    col = i % screen_columns
-        #    rb = tk.Radiobutton(
-        #        screen_grid,
-        #        text=f"屏幕{int(screen_val)+1}",
-        #        variable=self.screen_var,
-        #        value=i,
-        #        font=self.fonts["control"],
-        #        bg=self.colors["card_bg"],
-        #        fg=self.colors["text"],
-        #        activebackground=self.colors["card_bg"],
-        #        activeforeground=self.colors["accent_dark"],
-        #        selectcolor=self.colors["bg"],
-        #        command=self._on_screen_changed,
-        #        anchor=tk.W,
-        #    )
-        #    rb.grid(row=row, column=col, sticky=tk.W, padx=15, pady=6)
-        #
-        #tk.Label(
-        #    screen_frame,
-        #    text="设置小爱在哪个屏幕游荡",
-        #    font=self.fonts["small"],
-        #    fg=self.colors["subtext"],
-        #    bg=self.colors["card_bg"],
-        #    anchor=tk.W,
-        #).pack(anchor=tk.W, padx=22)
+        multi_display_rb = tk.Radiobutton(
+            screen_frame,
+            text="多屏模式（使用多个显示器）",
+            variable=self.display_mode_var,
+            value="multi",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_display_mode_changed,
+            anchor=tk.W,
+        )
+        multi_display_rb.pack(anchor=tk.W, pady=2)
+
+        # 多屏模式下的子选项
+        self.multi_screen_options_frame = tk.Frame(
+            screen_frame, bg=self.colors["card_bg"]
+        )
+        self.multi_screen_options_frame.pack(fill=tk.X, padx=20, pady=(5, 0))
+
+        # 子选项：跨屏游荡 / 固定屏幕
+        self.screen_behavior_var = tk.StringVar(
+            value="wander" if current_total_screen else "fixed"
+        )
+
+        wander_rb = tk.Radiobutton(
+            self.multi_screen_options_frame,
+            text="跨屏游荡（在多个屏幕间自由移动）",
+            variable=self.screen_behavior_var,
+            value="wander",
+            font=self.fonts["base"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_screen_behavior_changed,
+            anchor=tk.W,
+        )
+        wander_rb.pack(anchor=tk.W, pady=2)
+
+        fixed_rb = tk.Radiobutton(
+            self.multi_screen_options_frame,
+            text="固定屏幕（只在指定屏幕显示）",
+            variable=self.screen_behavior_var,
+            value="fixed",
+            font=self.fonts["base"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_screen_behavior_changed,
+            anchor=tk.W,
+        )
+        fixed_rb.pack(anchor=tk.W, pady=2)
+
+        # 屏幕选择区域
+        self.screen_select_frame = tk.Frame(
+            self.multi_screen_options_frame, bg=self.colors["card_bg"]
+        )
+        self.screen_select_frame.pack(fill=tk.X, padx=20, pady=(5, 0))
+
+        tk.Label(
+            self.screen_select_frame,
+            text="选择屏幕：",
+            font=self.fonts["base"],
+            fg=self.colors["text"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(side=tk.LEFT)
+
+        # 屏幕选项（使用 SCREEN_INDEX 生成）
+        self.screen_var = tk.IntVar(value=current_screen_idx)
+        screen_grid = tk.Frame(self.screen_select_frame, bg=self.colors["card_bg"])
+        screen_grid.pack(side=tk.LEFT, fill=tk.X, padx=(10, 0))
+
+        screen_columns = 5
+        for i, screen_val in enumerate(SCREEN_INDEX):
+            row = i // screen_columns
+            col = i % screen_columns
+            rb = tk.Radiobutton(
+                screen_grid,
+                text=f"屏幕{int(screen_val) + 1}",
+                variable=self.screen_var,
+                value=i,
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
+                command=self._on_screen_changed,
+                anchor=tk.W,
+            )
+            rb.grid(row=row, column=col, sticky=tk.W, padx=10, pady=3)
+
+        # 根据当前模式更新UI状态
+        self._update_screen_options_visibility()
+
+        tk.Label(
+            screen_frame,
+            text="提示：更改后需重启软件生效",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
         # ===== 显示优先级设置 =====
         priority_frame = tk.LabelFrame(
             inner_frame,
@@ -971,12 +1053,65 @@ class SettingsWindow:
         config["auto_startup"] = enabled
         save_config(config)
 
-    def _on_total_screen_changed(self):
-        """多屏模式设置回调"""
-        enabled = self.total_screen_var.get()
-        self.app.screen = enabled
+    def _on_display_mode_changed(self):
+        """显示模式改变回调（单屏/多屏）"""
+        self._update_screen_options_visibility()
+        # 保存配置
+        display_mode = self.display_mode_var.get()
+        is_multi = display_mode == "multi"
         config = load_config()
-        config["total_screen"] = enabled
+        config["total_screen"] = is_multi
+        save_config(config)
+
+    def _on_screen_behavior_changed(self):
+        """屏幕行为改变回调（跨屏游荡/固定屏幕）"""
+        self._update_screen_options_visibility()
+        # 保存配置
+        behavior = self.screen_behavior_var.get()
+        is_wander = behavior == "wander"
+        config = load_config()
+        config["total_screen"] = is_wander
+        save_config(config)
+
+    def _update_screen_options_visibility(self):
+        """更新屏幕选项的可见性和可用状态"""
+        if not hasattr(self, "multi_screen_options_frame"):
+            return
+
+        display_mode = self.display_mode_var.get()
+
+        if display_mode == "single":
+            # 单屏模式：隐藏多屏选项
+            self.multi_screen_options_frame.pack_forget()
+        else:
+            # 多屏模式：显示多屏选项
+            self.multi_screen_options_frame.pack(fill=tk.X, padx=20, pady=(5, 0))
+
+            # 根据行为模式更新屏幕选择区域
+            behavior = self.screen_behavior_var.get()
+            if behavior == "wander":
+                # 跨屏游荡：禁用屏幕选择
+                self._set_screen_select_state(tk.DISABLED)
+            else:
+                # 固定屏幕：启用屏幕选择
+                self._set_screen_select_state(tk.NORMAL)
+
+    def _set_screen_select_state(self, state):
+        """设置屏幕选择区域的状态"""
+        if hasattr(self, "screen_select_frame"):
+            for child in self.screen_select_frame.winfo_children():
+                if isinstance(child, tk.Radiobutton):
+                    child.config(state=state)
+                elif isinstance(child, tk.Frame):
+                    for rb in child.winfo_children():
+                        if isinstance(rb, tk.Radiobutton):
+                            rb.config(state=state)
+
+    def _on_screen_changed(self):
+        """屏幕索引改变回调"""
+        index = self.screen_var.get()
+        config = load_config()
+        config["screen_index"] = index
         save_config(config)
 
     def _on_display_priority_changed(self):
