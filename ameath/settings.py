@@ -417,6 +417,15 @@ class SettingsWindow:
         )
         screen_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
 
+        tk.Label(
+            screen_frame,
+            text="提示：更改后需重启软件生效",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
         # 基础模式选择：单屏 / 多屏
         self.display_mode_var = tk.StringVar(
             value="multi" if current_total_screen else "single"
@@ -467,7 +476,7 @@ class SettingsWindow:
 
         wander_rb = tk.Radiobutton(
             self.multi_screen_options_frame,
-            text="跨屏游荡（在多个屏幕间自由移动）",
+            text="跨屏游荡（在多个屏幕间自由移动，强烈建议开启鼠标跟随）",
             variable=self.screen_behavior_var,
             value="wander",
             font=self.fonts["base"],
@@ -539,15 +548,6 @@ class SettingsWindow:
 
         # 根据当前模式更新UI状态
         self._update_screen_options_visibility()
-
-        tk.Label(
-            screen_frame,
-            text="提示：更改后需重启软件生效",
-            font=self.fonts["small"],
-            fg=self.colors["subtext"],
-            bg=self.colors["card_bg"],
-            anchor=tk.W,
-        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
 
         # ===== 显示优先级设置 =====
         priority_frame = tk.LabelFrame(
