@@ -1,3 +1,4 @@
+# ameath/pet.py
 import ctypes
 from ctypes import wintypes
 import os
@@ -57,6 +58,7 @@ from .constants import (
     WS_EX_TRANSPARENT,
 )
 from .utils import flip_frames, load_gif_frames, resource_path
+from .vioce import VoicePlayer  # 导入语音播放器
 
 
 class DesktopGif:
@@ -73,6 +75,12 @@ class DesktopGif:
         root.attributes("-topmost", True)
         root.config(bg=TRANSPARENT_COLOR)
         root.attributes("-transparentcolor", TRANSPARENT_COLOR)
+
+        # 初始化语音播放器
+        try:
+            self.voice_player = VoicePlayer()
+        except Exception as e:
+            self.voice_player = None
 
         # 加载配置
         config = load_config()
@@ -433,6 +441,11 @@ class DesktopGif:
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
+        # 播放随机语音
+        if self.voice_player:
+            self.voice_player.play_random_voice()
+
+
     def do_drag(self, event):
         """拖动中"""
         if self.dragging:
@@ -455,54 +468,19 @@ class DesktopGif:
         self.current_frames = frames
         self.current_delays = delays
         self.frame_index = 0
-        # 随机停止一段时间后恢复暂停模式
-        stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
-        self.root.after(stop_duration, self.paused)
 
     def switch_to_idle(self):
         """切换到随机idle状态（随机停下功能）"""
-        # 如果是暂停状态跳转paused
+        # 如果是暂停状态，不处理
         if self.is_paused:
-            stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
-            self.root.after(stop_duration, self.paused)
+            return
+        self.is_moving = False
+        frames, delays = random.choice(self.idle_gifs)
+        self.current_frames = frames
+        self.current_delays = delays
+        self.frame_index = 0
 
-        self.is_idle_playing = False
-        self.idle_allows_move = False
-
-        if self.wander_idle_stay_mode == 0:
-            # 始终移动：播放 idle 动画，但继续移动
-            self.is_idle_playing = True
-            self.idle_allows_move = True
-            self.is_moving = True
-        elif self.wander_idle_stay_mode == 2:
-            # 停驻：始终播放 idle 动画并停留
-            self.is_idle_playing = True
-            self.idle_allows_move = False
-            self.is_moving = False
-        else:
-            # 概率停驻：0.3 概率播放动画；若播放，0.5 概率停驻/移动
-            if random.random() < STAY_PUT_CHANCE:
-                self.is_idle_playing = True
-                self.idle_allows_move = random.random() >= 0.5
-                self.is_moving = self.idle_allows_move
-            else:
-                # 不播放动画，停在原地
-                self.is_idle_playing = False
-                self.idle_allows_move = False
-                self.is_moving = False
-
-        if self.is_idle_playing:
-            frames, delays = random.choice(self.idle_gifs)
-            self.current_frames = frames
-            self.current_delays = delays
-            self.frame_index = 0
-        else:
-            # 不播放 idle 动画时，显示随机 idle 静帧
-            frames, delays = random.choice(self.idle_gifs)
-            self.current_frames = frames
-            self.current_delays = delays
-            self.frame_index = random.randint(0, max(0, len(frames) - 1))
-
+        # 随机停止一段时间后恢复移动
         stop_duration = random.randint(STOP_DURATION_MIN, STOP_DURATION_MAX)
         self.root.after(stop_duration, self.switch_to_move)
 
@@ -511,8 +489,6 @@ class DesktopGif:
         # 如果是暂停状态，不处理
         if self.is_paused:
             return
-        self.is_idle_playing = False
-        self.idle_allows_move = False
         self.is_moving = True
         self.current_frames = (
             self.move_frames if self.moving_right else self.move_frames_left
@@ -610,6 +586,10 @@ class DesktopGif:
         if not self.current_frames:
             self.root.after(100, self.animate)
             return
+        # 拖动时不更新帧（静态显示）
+        if self.dragging:
+            self.root.after(50, self.animate)
+            return
         self.label.config(image=self.current_frames[self.frame_index])
         delay = self.current_delays[self.frame_index] if self.current_delays else 100
 
@@ -622,7 +602,6 @@ class DesktopGif:
         if self.is_paused:
             self.root.after(100, self.move)
             return
-
         # 拖动时停止自动运动
         if self.dragging:
             self.root.after(50, self.move)
@@ -630,7 +609,7 @@ class DesktopGif:
 
         # ============ 随机停下休息（游荡模式专属） ============
         if self.motion_state == MOTION_WANDER and self.is_moving:
-            if not self.is_idle_playing and random.random() < STOP_CHANCE:
+            if random.random() < STOP_CHANCE:
                 self.switch_to_idle()
                 self.root.after(MOVE_INTERVAL, self.move)
                 return
@@ -644,11 +623,6 @@ class DesktopGif:
                 self.target_x, self.target_y = self.get_random_target()
                 self.target_timer = random.randint(TARGET_CHANGE_MIN, TARGET_CHANGE_MAX)
                 self.switch_to_move()
-            self.root.after(MOVE_INTERVAL, self.move)
-            return
-
-        # idle 播放中保持原地不动
-        if not self.is_moving:
             self.root.after(MOVE_INTERVAL, self.move)
             return
 
@@ -667,8 +641,8 @@ class DesktopGif:
 
         # 如果关闭了跟随模式，强制重置为游荡模式
         if not self.follow_mouse and self.motion_state in (
-            MOTION_FOLLOW,
-            MOTION_CURIOUS,
+                MOTION_FOLLOW,
+                MOTION_CURIOUS,
         ):
             self.motion_state = MOTION_WANDER
 
@@ -685,20 +659,11 @@ class DesktopGif:
         elif self.motion_state == MOTION_WANDER and dist < REST_DISTANCE:
             if random.random() < REST_CHANCE:
                 # 休息一下
-                if self.wander_idle_stay_mode == 0:
-                    self.target_x, self.target_y = self.get_random_target()
-                    self.target_timer = random.randint(
-                        TARGET_CHANGE_MIN, TARGET_CHANGE_MAX
-                    )
-                else:
-                    if not self.is_idle_playing:
-                        self.motion_state = MOTION_REST
-                        self.rest_timer = random.randint(
-                            REST_DURATION_MIN, REST_DURATION_MAX
-                        )
-                        self.switch_to_idle()
-                        self.root.after(MOVE_INTERVAL, self.move)
-                        return
+                self.motion_state = MOTION_REST
+                self.rest_timer = random.randint(REST_DURATION_MIN, REST_DURATION_MAX)
+                self.switch_to_idle()
+                self.root.after(MOVE_INTERVAL, self.move)
+                return
             else:
                 # 继续游荡，换个目标
                 self.target_x, self.target_y = self.get_random_target()
@@ -785,14 +750,12 @@ class DesktopGif:
             new_moving_right = self.vx > 0.5
             new_moving_left = self.vx < -0.5
 
-            if self.is_idle_playing:
-                hit_edge = False
-            if new_moving_right and not self.moving_right and not self.is_idle_playing:
+            if new_moving_right and not self.moving_right:
                 self.moving_right = True
                 self.current_frames = self.move_frames
                 self.current_delays = self.move_delays
                 self.frame_index = 0
-            elif new_moving_left and self.moving_right and not self.is_idle_playing:
+            elif new_moving_left and self.moving_right:
                 self.moving_right = False
                 self.current_frames = self.move_frames_left
                 self.current_delays = self.move_delays
