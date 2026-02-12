@@ -97,6 +97,7 @@ def _sanitize_config(config):
         config.get("instance_count"),
         DEFAULT_CONFIG["instance_count"],
         min_value=1,
+        max_value=80,
     )
     result["skip_updates"] = _coerce_bool(
         config.get("skip_updates"), DEFAULT_CONFIG["skip_updates"]

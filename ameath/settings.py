@@ -40,6 +40,7 @@ class SettingsWindow:
         self._latest_asset_name = None
         self._download_thread = None
         self._restore_display_priority = None
+        self._pets_paused_by_settings = False
         self.colors = {
             "bg": "#FFF1F6",
             "card_bg": "#FFFFFF",
@@ -176,6 +177,9 @@ class SettingsWindow:
             self.window.focus_force()
             return
 
+        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
+        self._check_and_pause_pets()
+
         self._create_window()
         self.window.focus_force()
 
@@ -193,6 +197,9 @@ class SettingsWindow:
             if auto_check:
                 self.window.after(500, self._on_check_update)  # 延迟触发检查
             return
+
+        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
+        self._check_and_pause_pets()
 
         self._create_window()
         # 切换到检查更新标签页（索引1）
@@ -212,9 +219,33 @@ class SettingsWindow:
                         self._restore_display_priority, persist=False
                     )
             self._restore_display_priority = None
+
+        # 恢复被暂停的桌宠
+        self._restore_pets_if_paused()
+
         if self.window:
             self.window.destroy()
             self.window = None
+
+    def _check_and_pause_pets(self):
+        """检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅"""
+        try:
+            if hasattr(self.app, "pets") and len(self.app.pets) > 10:
+                # 只有在未暂停的情况下才暂停
+                if not self.app.is_paused:
+                    self.app.toggle_pause()
+                    self._pets_paused_by_settings = True
+        except Exception as e:
+            print(f"设置窗口：暂停桌宠时出错: {e}")
+
+    def _restore_pets_if_paused(self):
+        """如果之前被设置窗口暂停，则恢复桌宠运行"""
+        try:
+            if self._pets_paused_by_settings and self.app.is_paused:
+                self.app.toggle_pause()
+                self._pets_paused_by_settings = False
+        except Exception as e:
+            print(f"设置窗口：恢复桌宠时出错: {e}")
 
     def _create_personalization_tab(self, parent):
         """创建个性化标签页"""
@@ -652,7 +683,16 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text="警告：请根据自身电脑性能，量力而行",
+            text="警告：请根据自身电脑性能，量力而行，最多80个。",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
+        tk.Label(
+            multi_frame,
+            text="超过10个时，在此界面会暂停桌宠们。",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -1130,10 +1170,19 @@ class SettingsWindow:
             count = 1
         if count < 1:
             count = 1
+        if count > 80:
+            count = 80
+            messagebox.showwarning("警告", "实例数量不能超过80个，已自动设置为80。")
         self.instance_count_var.set(str(count))
         config = load_config()
         config["instance_count"] = count
         save_config(config)
+
+        # 如果设置的实例数大于10，暂停所有桌宠以保证设置窗口流畅
+        if count > 10 and not self.app.is_paused:
+            self.app.toggle_pause()
+            self._pets_paused_by_settings = True
+
         if hasattr(self.app, "set_instance_count"):
             self.app.set_instance_count(count)
 
