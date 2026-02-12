@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
 config.json
+git_hash.txt
 
 nul

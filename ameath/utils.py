@@ -51,6 +51,35 @@ def get_version():
     return "dev"
 
 
+def get_git_hash():
+    """获取当前git commit hash的前6位"""
+    # 1. 优先读取 git_hash.txt（打包后独立运行）
+    try:
+        hash_path = resource_path("git_hash.txt")
+        if os.path.exists(hash_path):
+            with open(hash_path, "r", encoding="utf-8") as f:
+                git_hash = f.read().strip()
+            if git_hash:
+                return git_hash
+    except Exception:
+        pass
+
+    # 2. 回退：尝试从 git 获取
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short=6", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        if git_hash:
+            return git_hash
+    except Exception:
+        pass
+
+    return ""
+
+
 def check_new_version():
     """检查Gitee是否有新版本"""
     import re

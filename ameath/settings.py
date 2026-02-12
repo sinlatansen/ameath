@@ -18,7 +18,7 @@ from .constants import (
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
 )
-from .utils import resource_path, check_update, download_and_update
+from .utils import resource_path, check_update, download_and_update, get_git_hash
 
 
 class SettingsWindow:
@@ -28,6 +28,7 @@ class SettingsWindow:
         self.parent = parent
         self.app = app
         self.version = version
+        self.git_hash = get_git_hash()
         self.window = None
         self._update_check_thread = None
         self.notebook = None
@@ -790,7 +791,19 @@ class SettingsWindow:
             font=self.fonts["base"],
             fg=self.colors["subtext"],
             bg=self.colors["bg"],
-        ).pack(pady=(0, 20))
+        ).pack(pady=(0, 5))
+
+        # Git Hash
+        if self.git_hash:
+            tk.Label(
+                frame,
+                text=f"Build: {self.git_hash}",
+                font=self.fonts["small"],
+                fg=self.colors["subtext"],
+                bg=self.colors["bg"],
+            ).pack(pady=(0, 15))
+        else:
+            tk.Frame(frame, height=10, bg=self.colors["bg"]).pack()
 
         # 分隔线
         separator = ttk.Separator(frame, orient="horizontal")
