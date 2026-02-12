@@ -57,7 +57,7 @@ from .constants import (
     WS_EX_TRANSPARENT,
 )
 from .utils import flip_frames, load_gif_frames, resource_path
-
+from .vioce import VoicePlayer
 
 class DesktopGif:
     app: Any = None  # 用于系统托盘
@@ -73,6 +73,13 @@ class DesktopGif:
         root.attributes("-topmost", True)
         root.config(bg=TRANSPARENT_COLOR)
         root.attributes("-transparentcolor", TRANSPARENT_COLOR)
+
+        # 初始化语音播放器
+        try:
+            self.voice_player = VoicePlayer()
+        except Exception:
+            self.voice_player = None
+
 
         # 加载配置
         config = load_config()
@@ -433,6 +440,9 @@ class DesktopGif:
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
+        # 播放随机语音
+        if self.voice_player:
+            self.voice_player.play_random_voice()
     def do_drag(self, event):
         """拖动中"""
         if self.dragging:
