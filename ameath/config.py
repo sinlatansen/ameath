@@ -14,7 +14,7 @@ from .constants import (
 
 
 DEFAULT_CONFIG = {
-    "total_screen": True,
+    "total_screen": False,
     "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
