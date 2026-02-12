@@ -1,6 +1,7 @@
 """设置窗口模块 - 包含个性化、检查更新、关于三个标签页"""
 
 import tkinter as tk
+import getpass
 from tkinter import messagebox
 from tkinter import ttk
 import webbrowser
@@ -500,12 +501,43 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text="提示：每个实例约需要60MB运行内存，量力而行",
+            text="警告：请根据自身电脑性能，量力而行",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
+        tk.Label(
+            multi_frame,
+            text=(f"如果设置太多导致软件崩溃无法启动"),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
+
+        username = getpass.getuser()
+
+        tk.Label(
+            multi_frame,
+            text=(
+                f"请手动打开 C:\\Users\\{username}\\AppData\\Roaming\\ameath_config.json"
+            ),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
+
+        tk.Label(
+            multi_frame,
+            text=(f"修改 instance_count 参数为1。"),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
 
         # ===== 游荡停驻设置 =====
         wander_idle_frame = tk.LabelFrame(
