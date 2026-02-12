@@ -1,4 +1,3 @@
-# ameath/vioce.py
 import os
 import sys
 import random
