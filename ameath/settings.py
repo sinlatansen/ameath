@@ -1,6 +1,7 @@
 """设置窗口模块 - 包含个性化、检查更新、关于三个标签页"""
 
 import tkinter as tk
+import getpass
 from tkinter import messagebox
 from tkinter import ttk
 import webbrowser
@@ -19,7 +20,7 @@ from .constants import (
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
 )
-from .utils import resource_path, check_update, download_and_update
+from .utils import resource_path, check_update, download_and_update, get_git_hash
 
 
 class SettingsWindow:
@@ -29,6 +30,7 @@ class SettingsWindow:
         self.parent = parent
         self.app = app
         self.version = version
+        self.git_hash = get_git_hash()
         self.window = None
         self._update_check_thread = None
         self.notebook = None
@@ -568,12 +570,43 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text="提示：每个实例约需要60MB运行内存，量力而行",
+            text="警告：请根据自身电脑性能，量力而行",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
+        tk.Label(
+            multi_frame,
+            text=(f"如果设置太多导致软件崩溃无法启动"),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
+
+        username = getpass.getuser()
+
+        tk.Label(
+            multi_frame,
+            text=(
+                f"请手动打开 C:\\Users\\{username}\\AppData\\Roaming\\ameath_config.json"
+            ),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
+
+        tk.Label(
+            multi_frame,
+            text=(f"修改 instance_count 参数为1。"),
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(2, 0))
 
         # ===== 游荡停驻设置 =====
         wander_idle_frame = tk.LabelFrame(
@@ -826,7 +859,19 @@ class SettingsWindow:
             font=self.fonts["base"],
             fg=self.colors["subtext"],
             bg=self.colors["bg"],
-        ).pack(pady=(0, 20))
+        ).pack(pady=(0, 5))
+
+        # Git Hash
+        if self.git_hash:
+            tk.Label(
+                frame,
+                text=f"Build: {self.git_hash}",
+                font=self.fonts["small"],
+                fg=self.colors["subtext"],
+                bg=self.colors["bg"],
+            ).pack(pady=(0, 15))
+        else:
+            tk.Frame(frame, height=10, bg=self.colors["bg"]).pack()
 
         # 分隔线
         separator = ttk.Separator(frame, orient="horizontal")

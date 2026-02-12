@@ -1,11 +1,35 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+import subprocess
+
+
+def _write_git_hash():
+    root = Path.cwd().resolve()
+    hash_path = root / "git_hash.txt"
+    git_hash = ""
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short=6", "HEAD"],
+            cwd=str(root),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        pass
+
+    if git_hash:
+        hash_path.write_text(git_hash, encoding="utf-8")
+
+
+_write_git_hash()
+
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('gifs', 'gifs'), ('version.txt', '.')],
+    datas=[('gifs', 'gifs'), ('version.txt', '.'), ('git_hash.txt', '.')],
     hiddenimports=[
         'PIL._tkinter',
         'ameath',
