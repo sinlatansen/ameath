@@ -19,7 +19,7 @@ def load_config():
         return {
             "scale_index": DEFAULT_SCALE_INDEX,
             "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
-            "auto_startup": False,
+            "auto_startup": True,
             "click_through": True,
             "follow_mouse": False,
             "display_priority": 1,
