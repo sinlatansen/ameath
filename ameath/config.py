@@ -14,6 +14,8 @@ from .constants import (
 
 
 DEFAULT_CONFIG = {
+    "total_screen": True,
+    "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
@@ -50,6 +52,14 @@ def _sanitize_config(config):
         return DEFAULT_CONFIG.copy()
 
     result = DEFAULT_CONFIG.copy()
+    result["total_screen"] = _coerce_bool(
+        config.get("total_screen"), DEFAULT_CONFIG["total_screen"]
+    )
+    result["screen_index"] = _coerce_int(
+        config.get("screen_index"),
+        DEFAULT_CONFIG["screen_index"],
+        min_value=0,
+    )
     result["scale_index"] = _coerce_int(
         config.get("scale_index"),
         DEFAULT_CONFIG["scale_index"],
@@ -102,18 +112,7 @@ def load_config():
             config = json.load(f)
             return _sanitize_config(config)
     except Exception:
-        return {
-            "total_screen": True,
-            "screen_index": DEFAULT_SCREEN_INDEX,
-            "scale_index": DEFAULT_SCALE_INDEX,
-            "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
-            "auto_startup": False,
-            "click_through": True,
-            "follow_mouse": False,
-            "display_priority": 1,
-            "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
-            "instance_count": 1,
-        }
+        return DEFAULT_CONFIG.copy()
 
 
 def save_config(config):
