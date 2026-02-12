@@ -7,25 +7,101 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    SCALE_OPTIONS,
+    TRANSPARENCY_OPTIONS,
 )
+
+
+DEFAULT_CONFIG = {
+    "scale_index": DEFAULT_SCALE_INDEX,
+    "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
+    "auto_startup": True,
+    "click_through": True,
+    "follow_mouse": False,
+    "display_priority": 1,
+    "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
+    "instance_count": 1,
+    "skip_updates": False,
+    "skip_version": None,
+}
+
+
+def _coerce_bool(value, default):
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _coerce_int(value, default, min_value=None, max_value=None):
+    try:
+        value = int(value)
+    except Exception:
+        return default
+    if min_value is not None and value < min_value:
+        return default
+    if max_value is not None and value > max_value:
+        return default
+    return value
+
+
+def _sanitize_config(config):
+    if not isinstance(config, dict):
+        return DEFAULT_CONFIG.copy()
+
+    result = DEFAULT_CONFIG.copy()
+    result["scale_index"] = _coerce_int(
+        config.get("scale_index"),
+        DEFAULT_CONFIG["scale_index"],
+        min_value=0,
+        max_value=len(SCALE_OPTIONS) - 1,
+    )
+    result["transparency_index"] = _coerce_int(
+        config.get("transparency_index"),
+        DEFAULT_CONFIG["transparency_index"],
+        min_value=0,
+        max_value=len(TRANSPARENCY_OPTIONS) - 1,
+    )
+    result["auto_startup"] = _coerce_bool(
+        config.get("auto_startup"), DEFAULT_CONFIG["auto_startup"]
+    )
+    result["click_through"] = _coerce_bool(
+        config.get("click_through"), DEFAULT_CONFIG["click_through"]
+    )
+    result["follow_mouse"] = _coerce_bool(
+        config.get("follow_mouse"), DEFAULT_CONFIG["follow_mouse"]
+    )
+    result["display_priority"] = _coerce_int(
+        config.get("display_priority"),
+        DEFAULT_CONFIG["display_priority"],
+        min_value=1,
+        max_value=3,
+    )
+    result["wander_idle_stay_mode"] = _coerce_int(
+        config.get("wander_idle_stay_mode"),
+        DEFAULT_CONFIG["wander_idle_stay_mode"],
+        min_value=0,
+        max_value=2,
+    )
+    result["instance_count"] = _coerce_int(
+        config.get("instance_count"),
+        DEFAULT_CONFIG["instance_count"],
+        min_value=1,
+    )
+    result["skip_updates"] = _coerce_bool(
+        config.get("skip_updates"), DEFAULT_CONFIG["skip_updates"]
+    )
+    result["skip_version"] = config.get("skip_version")
+    return result
 
 
 def load_config():
     """加载配置"""
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            config = json.load(f)
+            return _sanitize_config(config)
     except Exception:
-        return {
-            "scale_index": DEFAULT_SCALE_INDEX,
-            "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
-            "auto_startup": True,
-            "click_through": True,
-            "follow_mouse": False,
-            "display_priority": 1,
-            "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
-            "instance_count": 1,
-        }
+        return DEFAULT_CONFIG.copy()
 
 
 def save_config(config):
