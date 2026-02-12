@@ -672,9 +672,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(
-                f"请手动打开 C:\\Users\\{username}\\AppData\\Roaming\\ameath_config.json"
-            ),
+            text=(f"请‘win+R’打开运行，输入'%appdata%/ameath_config.json'打开配置文件"),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -683,7 +681,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(f"修改 instance_count 参数为1。"),
+            text=(f"手动修改 instance_count 参数为1。"),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
