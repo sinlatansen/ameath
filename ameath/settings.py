@@ -40,6 +40,7 @@ class SettingsWindow:
         self._latest_asset_name = None
         self._download_thread = None
         self._restore_display_priority = None
+        self._pets_paused_by_settings = False
         self.colors = {
             "bg": "#FFF1F6",
             "card_bg": "#FFFFFF",
@@ -176,6 +177,9 @@ class SettingsWindow:
             self.window.focus_force()
             return
 
+        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
+        self._check_and_pause_pets()
+
         self._create_window()
         self.window.focus_force()
 
@@ -193,6 +197,9 @@ class SettingsWindow:
             if auto_check:
                 self.window.after(500, self._on_check_update)  # 延迟触发检查
             return
+
+        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
+        self._check_and_pause_pets()
 
         self._create_window()
         # 切换到检查更新标签页（索引1）
@@ -212,9 +219,33 @@ class SettingsWindow:
                         self._restore_display_priority, persist=False
                     )
             self._restore_display_priority = None
+
+        # 恢复被暂停的桌宠
+        self._restore_pets_if_paused()
+
         if self.window:
             self.window.destroy()
             self.window = None
+
+    def _check_and_pause_pets(self):
+        """检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅"""
+        try:
+            if hasattr(self.app, "pets") and len(self.app.pets) > 10:
+                # 只有在未暂停的情况下才暂停
+                if not self.app.is_paused:
+                    self.app.toggle_pause()
+                    self._pets_paused_by_settings = True
+        except Exception as e:
+            print(f"设置窗口：暂停桌宠时出错: {e}")
+
+    def _restore_pets_if_paused(self):
+        """如果之前被设置窗口暂停，则恢复桌宠运行"""
+        try:
+            if self._pets_paused_by_settings and self.app.is_paused:
+                self.app.toggle_pause()
+                self._pets_paused_by_settings = False
+        except Exception as e:
+            print(f"设置窗口：恢复桌宠时出错: {e}")
 
     def _create_personalization_tab(self, parent):
         """创建个性化标签页"""
@@ -417,56 +448,102 @@ class SettingsWindow:
         )
         screen_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
 
-        self.total_screen_var = tk.BooleanVar(value=current_total_screen)
-        startup_cb = tk.Checkbutton(
+        tk.Label(
             screen_frame,
-            text="多屏模式，小爱游荡可以跨屏(重启软件生效)",
-            variable=self.total_screen_var,
+            text="提示：更改后需重启软件生效",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 10))
+
+        # 模式选择：固定屏幕 / 跨屏游荡
+        self.display_mode_var = tk.StringVar(
+            value="wander" if current_total_screen else "fixed"
+        )
+
+        # 固定屏幕选项（包含屏幕选择器）
+        fixed_frame = tk.Frame(screen_frame, bg=self.colors["card_bg"])
+        fixed_frame.pack(fill=tk.X, pady=(0, 5))
+
+        fixed_rb = tk.Radiobutton(
+            fixed_frame,
+            text="固定屏幕",
+            variable=self.display_mode_var,
+            value="fixed",
             font=self.fonts["control"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
             activebackground=self.colors["card_bg"],
             activeforeground=self.colors["accent_dark"],
             selectcolor=self.colors["bg"],
-            command=self._on_total_screen_changed,
+            command=self._on_display_mode_changed,
             anchor=tk.W,
         )
-        startup_cb.pack(anchor=tk.W, pady=3)
+        fixed_rb.pack(side=tk.LEFT)
 
-        #self.screen_var = tk.IntVar(value=current_screen_idx)
-        #
-        ## 使用网格布局，多列展示
-        #screen_grid = tk.Frame(screen_frame, bg=self.colors["card_bg"])
-        #screen_grid.pack(fill=tk.X, pady=5)
-        #
-        #screen_columns = 5
-        #for i, screen_val in enumerate(SCREEN_INDEX):
-        #    row = i // screen_columns
-        #    col = i % screen_columns
-        #    rb = tk.Radiobutton(
-        #        screen_grid,
-        #        text=f"屏幕{int(screen_val)+1}",
-        #        variable=self.screen_var,
-        #        value=i,
-        #        font=self.fonts["control"],
-        #        bg=self.colors["card_bg"],
-        #        fg=self.colors["text"],
-        #        activebackground=self.colors["card_bg"],
-        #        activeforeground=self.colors["accent_dark"],
-        #        selectcolor=self.colors["bg"],
-        #        command=self._on_screen_changed,
-        #        anchor=tk.W,
-        #    )
-        #    rb.grid(row=row, column=col, sticky=tk.W, padx=15, pady=6)
-        #
-        #tk.Label(
-        #    screen_frame,
-        #    text="设置小爱在哪个屏幕游荡",
-        #    font=self.fonts["small"],
-        #    fg=self.colors["subtext"],
-        #    bg=self.colors["card_bg"],
-        #    anchor=tk.W,
-        #).pack(anchor=tk.W, padx=22)
+        # 屏幕选择器（紧随RadioButton之后）
+        self.screen_select_container = tk.Frame(fixed_frame, bg=self.colors["card_bg"])
+        self.screen_select_container.pack(side=tk.LEFT, padx=(10, 0))
+
+        # 屏幕选项
+        self.screen_var = tk.IntVar(value=current_screen_idx)
+        screen_grid = tk.Frame(self.screen_select_container, bg=self.colors["card_bg"])
+        screen_grid.pack(fill=tk.X)
+
+        screen_columns = 5
+        for i, screen_val in enumerate(SCREEN_INDEX):
+            row = i // screen_columns
+            col = i % screen_columns
+            rb = tk.Radiobutton(
+                screen_grid,
+                text=f"屏幕{int(screen_val) + 1}",
+                variable=self.screen_var,
+                value=i,
+                font=self.fonts["base"],
+                bg=self.colors["card_bg"],
+                fg=self.colors["text"],
+                activebackground=self.colors["card_bg"],
+                activeforeground=self.colors["accent_dark"],
+                selectcolor=self.colors["bg"],
+                command=self._on_screen_changed,
+                anchor=tk.W,
+            )
+            rb.grid(row=row, column=col, sticky=tk.W, padx=10, pady=3)
+
+        # 跨屏游荡选项
+        wander_frame = tk.Frame(screen_frame, bg=self.colors["card_bg"])
+        wander_frame.pack(fill=tk.X, pady=(10, 0))
+
+        wander_rb = tk.Radiobutton(
+            wander_frame,
+            text="跨屏游荡",
+            variable=self.display_mode_var,
+            value="wander",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_display_mode_changed,
+            anchor=tk.W,
+        )
+        wander_rb.pack(side=tk.LEFT)
+
+        # 提示文字
+        tk.Label(
+            wander_frame,
+            text="（在多个屏幕间自由移动，强烈建议开启鼠标跟随）",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(side=tk.LEFT, padx=(5, 0))
+
+        # 根据当前模式更新UI状态
+        self._update_screen_options_visibility()
+
         # ===== 显示优先级设置 =====
         priority_frame = tk.LabelFrame(
             inner_frame,
@@ -570,7 +647,16 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text="警告：请根据自身电脑性能，量力而行",
+            text="警告：请根据自身电脑性能，量力而行，最多80个。",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
+
+        tk.Label(
+            multi_frame,
+            text="超过10个时，在此界面会暂停桌宠们。",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -590,9 +676,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(
-                f"请手动打开 C:\\Users\\{username}\\AppData\\Roaming\\ameath_config.json"
-            ),
+            text=(f"请‘win+R’打开运行，输入'%appdata%/ameath_config.json'打开配置文件"),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -601,7 +685,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(f"修改 instance_count 参数为1。"),
+            text=(f"手动修改 instance_count 参数为1。"),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -971,12 +1055,46 @@ class SettingsWindow:
         config["auto_startup"] = enabled
         save_config(config)
 
-    def _on_total_screen_changed(self):
-        """多屏模式设置回调"""
-        enabled = self.total_screen_var.get()
-        self.app.screen = enabled
+    def _on_display_mode_changed(self):
+        """显示模式改变回调（固定屏幕/跨屏游荡）"""
+        self._update_screen_options_visibility()
+        # 保存配置
+        display_mode = self.display_mode_var.get()
+        is_wander = display_mode == "wander"
         config = load_config()
-        config["total_screen"] = enabled
+        config["total_screen"] = is_wander
+        save_config(config)
+
+    def _update_screen_options_visibility(self):
+        """更新屏幕选项的可用状态"""
+        if not hasattr(self, "screen_select_container"):
+            return
+
+        display_mode = self.display_mode_var.get()
+
+        if display_mode == "wander":
+            # 跨屏游荡：禁用屏幕选择
+            self._set_screen_select_state(tk.DISABLED)
+        else:
+            # 固定屏幕：启用屏幕选择
+            self._set_screen_select_state(tk.NORMAL)
+
+    def _set_screen_select_state(self, state):
+        """设置屏幕选择区域的状态"""
+        if hasattr(self, "screen_select_container"):
+            for child in self.screen_select_container.winfo_children():
+                if isinstance(child, tk.Radiobutton):
+                    child.config(state=state)
+                elif isinstance(child, tk.Frame):
+                    for rb in child.winfo_children():
+                        if isinstance(rb, tk.Radiobutton):
+                            rb.config(state=state)
+
+    def _on_screen_changed(self):
+        """屏幕索引改变回调"""
+        index = self.screen_var.get()
+        config = load_config()
+        config["screen_index"] = index
         save_config(config)
 
     def _on_display_priority_changed(self):
@@ -997,10 +1115,19 @@ class SettingsWindow:
             count = 1
         if count < 1:
             count = 1
+        if count > 80:
+            count = 80
+            messagebox.showwarning("警告", "实例数量不能超过80个，已自动设置为80。")
         self.instance_count_var.set(str(count))
         config = load_config()
         config["instance_count"] = count
         save_config(config)
+
+        # 如果设置的实例数大于10，暂停所有桌宠以保证设置窗口流畅
+        if count > 10 and not self.app.is_paused:
+            self.app.toggle_pause()
+            self._pets_paused_by_settings = True
+
         if hasattr(self.app, "set_instance_count"):
             self.app.set_instance_count(count)
 
