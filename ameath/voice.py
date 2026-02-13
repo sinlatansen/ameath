@@ -19,12 +19,13 @@ class VoicePlayer:
         voice_dir = resource_path("sound/voice")
         if os.path.exists(voice_dir):
             for file in os.listdir(voice_dir):
-                if file.lower().endswith('.wav'):
+                if file.lower().endswith(".wav"):
                     self.voice_files.append(os.path.join(voice_dir, file))
 
     def play_random_voice(self):
         try:
             import winsound
+
             if not self.voice_files:
                 return
 

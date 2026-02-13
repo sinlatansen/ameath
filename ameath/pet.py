@@ -61,6 +61,7 @@ from .constants import (
 from .utils import flip_frames, load_gif_frames, resource_path
 from .voice import VoicePlayer
 
+
 class DesktopGif:
     app: Any = None  # 用于系统托盘
 
@@ -81,7 +82,6 @@ class DesktopGif:
             self.voice_player = VoicePlayer()
         except Exception:
             self.voice_player = None
-
 
         # 加载配置
         config = load_config()
@@ -478,6 +478,7 @@ class DesktopGif:
         # 播放随机语音
         if self.voice_player:
             self.voice_player.play_random_voice()
+
     def do_drag(self, event):
         """拖动中"""
         if self.dragging:
