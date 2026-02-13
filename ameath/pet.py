@@ -57,7 +57,7 @@ from .constants import (
     WS_EX_TRANSPARENT,
 )
 from .utils import flip_frames, load_gif_frames, resource_path
-from .vioce import VoicePlayer
+from .voice import VoicePlayer
 
 class DesktopGif:
     app: Any = None  # 用于系统托盘
