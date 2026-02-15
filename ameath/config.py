@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
-    "click_through": True,
+    "click_through": False,
     "follow_mouse": False,
     "display_priority": 1,
     "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
