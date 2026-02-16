@@ -3,12 +3,11 @@ from ctypes import wintypes
 import os
 import random
 import tkinter as tk
+from tkinter import Menu
 from typing import Any
-from screeninfo import get_monitors
-
+import threading
 from .config import load_config, save_config, check_and_fix_startup
 from .constants import (
-    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -60,6 +59,7 @@ from .constants import (
 )
 from .utils import flip_frames, load_gif_frames, resource_path
 from .voice import VoicePlayer
+from .music_player import MusicPlayer
 
 
 class DesktopGif:
@@ -85,8 +85,6 @@ class DesktopGif:
 
         # 加载配置
         config = load_config()
-        self.total_screen = config.get("total_screen", True)
-        self.screen_index = config.get("screen_index", DEFAULT_SCREEN_INDEX)
         self.scale_index = config.get("scale_index", DEFAULT_SCALE_INDEX)
         self.auto_startup = config.get("auto_startup", False)
         self.scale = SCALE_OPTIONS[self.scale_index]
@@ -95,40 +93,6 @@ class DesktopGif:
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
 
-        # 获取屏幕
-        monitors = get_monitors()
-        if self.screen_index < 0 or self.screen_index + 1 > len(monitors):
-            target_monitor = monitors[0]
-            print("屏幕设置非法,使用主屏")
-            config["screen_index"] = 0
-            save_config(config)
-        else:
-            target_monitor = monitors[self.screen_index]
-
-        # 按屏幕模式获取屏幕高度和宽度
-        left = float("inf")
-        top = float("inf")
-        right = float("-inf")
-        bottom = float("-inf")
-        if self.total_screen:
-            # 多屏模式
-            for m in monitors:
-                left = min(left, m.x)
-                top = min(top, m.y)
-                right = max(right, m.x + m.width)
-                bottom = max(bottom, m.y + m.height)
-        else:
-            # 单屏模式
-            left = target_monitor.x
-            top = target_monitor.y
-            right = target_monitor.x + target_monitor.width
-            bottom = target_monitor.y + target_monitor.height
-
-        # 可活动区域
-        self.screen_x = left
-        self.screen_y = top
-        self.screen_w = right
-        self.screen_h = bottom
         # 检查开机自启路径是否正确（exe移动后自动修复）
         check_and_fix_startup()
 
@@ -179,9 +143,9 @@ class DesktopGif:
         self.w = self.current_frames[0].width()
         self.h = self.current_frames[0].height()
 
-        # 初始出现在屏幕随机位置（配合多开）
-        self.x = random.randint(self.screen_x, self.screen_w - self.w)
-        self.y = random.randint(self.screen_y, self.screen_h - self.h)
+        # 不要放在 (0,0)
+        self.x = 200
+        self.y = 200
         root.geometry(f"{self.w}x{self.h}+{self.x}+{self.y}")
 
         # 强制刷新，让 winfo_x/y 生效
@@ -198,6 +162,9 @@ class DesktopGif:
             "transparency_index", DEFAULT_TRANSPARENCY_INDEX
         )
         self.set_transparency(self.transparency_index)
+
+        self.screen_w = root.winfo_screenwidth()
+        self.screen_h = root.winfo_screenheight()
 
         self.vx = SPEED_X
         self.vy = SPEED_Y
@@ -230,6 +197,22 @@ class DesktopGif:
 
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
+        # 音乐播放器引用
+        self.music_player_window = None
+        # 加载语音音量配置
+        try:
+            self.voice_player = VoicePlayer()
+            # 加载语音配置
+            config = load_config()
+            voice_enabled = config.get("voice_enabled", True)
+            voice_volume = config.get("voice_volume", 100)
+            if self.voice_player:
+                self.voice_player.set_volume(voice_volume)
+        except Exception:
+            self.voice_player = None
+
+        # 绑定右键事件
+        self.label.bind("<Button-3>", self.handle_right_click)
 
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""
@@ -243,6 +226,55 @@ class DesktopGif:
         except Exception:
             pass
         self.root.after(500, self.ensure_visibility)
+
+    def quit_app(self):
+        """退出应用程序"""
+        try:
+            if hasattr(self.app, 'quit') and callable(getattr(self.app, 'quit')):
+                self.app.quit()
+            elif hasattr(self.app, 'stop') and callable(getattr(self.app, 'stop')):
+                # 如果是 pystray Icon 对象
+                self.app.stop()
+            else:
+                self.root.quit()
+        except:
+            self.root.quit()
+
+    def handle_right_click(self, event):
+        """处理右键点击事件"""
+        config = load_config()
+        music_enabled = config.get("music_enabled", False)
+
+        if music_enabled:
+            self.open_music_player()
+
+    def open_music_player(self):
+        """打开音乐播放器"""
+        if self.music_player_window is not None and self.music_player_window.winfo_exists():
+            self.music_player_window.lift()
+            return
+
+        self.music_player_window = tk.Toplevel(self.root)
+        self.music_player_window.protocol("WM_DELETE_WINDOW", self.on_music_player_close)
+
+        try:
+            from .music_player import MusicPlayer
+            MusicPlayer(self.music_player_window, self.on_music_player_position_unlocked)
+        except ImportError as e:
+            print(f"无法导入音乐播放器: {e}")
+            import tkinter.messagebox as messagebox
+            messagebox.showerror("错误", "音乐播放器模块加载失败")
+            self.music_player_window.destroy()
+
+    def on_music_player_close(self):
+        """音乐播放器关闭时的回调"""
+        if self.music_player_window:
+            self.music_player_window.destroy()
+            self.music_player_window = None
+
+    def on_music_player_position_unlocked(self):
+        """音乐播放器位置解锁回调"""
+        pass
 
     def _apply_topmost(self):
         if self._hidden_by_fullscreen:
@@ -312,8 +344,8 @@ class DesktopGif:
             ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
             width = rect.right - rect.left
             height = rect.bottom - rect.top
-            screen_w = self.screen_w
-            screen_h = self.screen_h
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
             return width >= screen_w and height >= screen_h
         except Exception:
             return False
@@ -458,6 +490,20 @@ class DesktopGif:
             self.current_delays = self.move_delays
             self.frame_index = 0
 
+    def set_voice_enabled(self, enabled):
+        """设置语音是否启用"""
+        config = load_config()
+        config["voice_enabled"] = enabled
+        save_config(config)
+
+    def set_voice_volume(self, volume):
+        """设置语音音量"""
+        config = load_config()
+        config["voice_volume"] = volume
+        save_config(config)
+        if self.voice_player:
+            self.voice_player.set_volume(volume)
+
     def start_drag(self, event):
         """开始拖动（鼠标穿透关闭时才可用）"""
         if self.click_through:
@@ -475,9 +521,11 @@ class DesktopGif:
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
-        # 播放随机语音
+        # 播放随机语音（如果启用）
         if self.voice_player:
-            self.voice_player.play_random_voice()
+            config = load_config()
+            if config.get("voice_enabled", True):
+                self.voice_player.play_random_voice()
 
     def do_drag(self, event):
         """拖动中"""
@@ -575,23 +623,23 @@ class DesktopGif:
             side = random.choice(["left", "right", "top", "bottom"])
             margin = RESPAWN_MARGIN + 50  # 比重生距离再远一点
             if side == "left":
-                return (-margin, random.randint(self.screen_y, self.screen_h - self.h))
+                return (-margin, random.randint(0, self.screen_h - self.h))
             elif side == "right":
                 return (
                     self.screen_w + margin,
-                    random.randint(self.screen_y, self.screen_h - self.h),
+                    random.randint(0, self.screen_h - self.h),
                 )
             elif side == "top":
-                return (random.randint(self.screen_x, self.screen_w - self.w), -margin)
+                return (random.randint(0, self.screen_w - self.w), -margin)
             else:  # bottom
                 return (
-                    random.randint(self.screen_x, self.screen_w - self.w),
+                    random.randint(0, self.screen_w - self.w),
                     self.screen_h + margin,
                 )
         else:
             return (
-                random.randint(self.screen_x, self.screen_w - self.w),
-                random.randint(self.screen_y, self.screen_h - self.h),
+                random.randint(0, self.screen_w - self.w),
+                random.randint(0, self.screen_h - self.h),
             )
 
     def get_follow_target(self):
@@ -603,8 +651,8 @@ class DesktopGif:
         tx = mx + random.randint(-offset, offset)
         ty = my + random.randint(-offset, offset)
         # 限制在屏幕内
-        tx = max(self.screen_x, min(self.screen_w - self.w, tx))
-        ty = max(self.screen_y, min(self.screen_h - self.h, ty))
+        tx = max(0, min(self.screen_w - self.w, tx))
+        ty = max(0, min(self.screen_h - self.h, ty))
         return tx, ty
 
     def respawn_from_edge(self):
@@ -612,16 +660,16 @@ class DesktopGif:
         side = random.choice(["left", "right", "top", "bottom"])
         if side == "left":
             self.x = -RESPAWN_MARGIN
-            self.y = random.randint(self.screen_y, self.screen_h - self.h)
+            self.y = random.randint(0, self.screen_h - self.h)
         elif side == "right":
             self.x = self.screen_w + RESPAWN_MARGIN
-            self.y = random.randint(self.screen_y, self.screen_h - self.h)
+            self.y = random.randint(0, self.screen_h - self.h)
         elif side == "top":
             self.y = -RESPAWN_MARGIN
-            self.x = random.randint(self.screen_x, self.screen_w - self.w)
+            self.x = random.randint(0, self.screen_w - self.w)
         else:  # bottom
             self.y = self.screen_h + RESPAWN_MARGIN
-            self.x = random.randint(self.screen_x, self.screen_w - self.w)
+            self.x = random.randint(0, self.screen_w - self.w)
 
         # 给一点入场速度
         self.vx = random.choice([-3, 3])
@@ -632,9 +680,9 @@ class DesktopGif:
         escaped = False
 
         # 检测是否出屏
-        if self.x < self.screen_x or self.x > self.screen_w - self.w:
+        if self.x < -self.w or self.x > self.screen_w:
             escaped = True
-        if self.y < self.screen_y or self.y > self.screen_h - self.h:
+        if self.y < -self.h or self.y > self.screen_h:
             escaped = True
 
         if escaped:
@@ -646,8 +694,8 @@ class DesktopGif:
                 self.vx = -self.vx
                 self.vy = -self.vy
                 # 拉回屏幕内
-                self.x = max(self.screen_x, min(self.screen_w - self.w, self.x))
-                self.y = max(self.screen_y, min(self.screen_h - self.h, self.y))
+                self.x = max(0, min(self.screen_w - self.w, self.x))
+                self.y = max(0, min(self.screen_h - self.h, self.y))
         return False
 
     # ============ 动画方法 ============
@@ -713,8 +761,8 @@ class DesktopGif:
 
         # 如果关闭了跟随模式，强制重置为游荡模式
         if not self.follow_mouse and self.motion_state in (
-            MOTION_FOLLOW,
-            MOTION_CURIOUS,
+                MOTION_FOLLOW,
+                MOTION_CURIOUS,
         ):
             self.motion_state = MOTION_WANDER
 
@@ -809,8 +857,8 @@ class DesktopGif:
         if not self.handle_edge():
             # 没出屏时才检查边界碰撞
             hit_edge = False
-            if self.x <= self.screen_x:
-                self.x = self.screen_x
+            if self.x <= 0:
+                self.x = 0
                 self.vx = abs(self.vx)  # 向右反弹
                 hit_edge = True
             elif self.x + self.w >= self.screen_w:
@@ -818,8 +866,8 @@ class DesktopGif:
                 self.vx = -abs(self.vx)  # 向左反弹
                 hit_edge = True
 
-            if self.y <= self.screen_y:
-                self.y = self.screen_y
+            if self.y <= 0:
+                self.y = 0
                 self.vy = abs(self.vy)  # 向下
                 hit_edge = True
             elif self.y + self.h >= self.screen_h:

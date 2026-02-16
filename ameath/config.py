@@ -4,30 +4,32 @@ import sys
 
 from .constants import (
     CONFIG_FILE,
-    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
     SCALE_OPTIONS,
     TRANSPARENCY_OPTIONS,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
 )
 
 
 DEFAULT_CONFIG = {
-    "total_screen": False,
-    "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
-    "click_through": False,
+    "click_through": True,
     "follow_mouse": False,
     "display_priority": 1,
     "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
     "instance_count": 1,
     "skip_updates": False,
     "skip_version": None,
+    "voice_enabled": DEFAULT_VOICE_ENABLED,  # 添加语音开关
+    "voice_volume": DEFAULT_VOICE_VOLUME,    # 添加语音音量
+    "music_enabled": True,                  # 默认开启音乐播放器
+    "music_volume": 100,                   # 音乐音量默认100%
 }
-
 
 def _coerce_bool(value, default):
     if isinstance(value, bool):
@@ -52,14 +54,6 @@ def _sanitize_config(config):
         return DEFAULT_CONFIG.copy()
 
     result = DEFAULT_CONFIG.copy()
-    result["total_screen"] = _coerce_bool(
-        config.get("total_screen"), DEFAULT_CONFIG["total_screen"]
-    )
-    result["screen_index"] = _coerce_int(
-        config.get("screen_index"),
-        DEFAULT_CONFIG["screen_index"],
-        min_value=0,
-    )
     result["scale_index"] = _coerce_int(
         config.get("scale_index"),
         DEFAULT_CONFIG["scale_index"],
@@ -97,12 +91,29 @@ def _sanitize_config(config):
         config.get("instance_count"),
         DEFAULT_CONFIG["instance_count"],
         min_value=1,
-        max_value=80,
     )
     result["skip_updates"] = _coerce_bool(
         config.get("skip_updates"), DEFAULT_CONFIG["skip_updates"]
     )
     result["skip_version"] = config.get("skip_version")
+    result["voice_enabled"] = _coerce_bool(
+        config.get("voice_enabled"), DEFAULT_CONFIG["voice_enabled"]
+    )
+    result["voice_volume"] = _coerce_int(
+        config.get("voice_volume"),
+        DEFAULT_CONFIG["voice_volume"],
+        min_value=0,
+        max_value=100,  # 修改为100%
+    )
+    result["music_enabled"] = _coerce_bool(
+        config.get("music_enabled"), DEFAULT_CONFIG["music_enabled"]
+    )
+    result["music_volume"] = _coerce_int(
+        config.get("music_volume"),
+        DEFAULT_CONFIG["music_volume"],
+        min_value=0,
+        max_value=100,  # 100%
+    )
     return result
 
 
@@ -185,7 +196,7 @@ def set_auto_startup(enable):
 
 
 def check_and_fix_startup():
-    """检查开机自启路径是否正确（exe移动后自动修复）"""
+    """检查开机自启路径是否正确（exe移动后自动修复"""
     if not getattr(sys, "frozen", False):
         return  # 只处理打包后的exe
 

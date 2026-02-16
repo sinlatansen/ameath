@@ -11,11 +11,9 @@ from PIL import Image, ImageTk
 
 from .config import load_config, save_config, set_auto_startup
 from .constants import (
-    SCREEN_INDEX,
     SCALE_OPTIONS,
     TRANSPARENCY_OPTIONS,
     GITEE_RELEASES_URL,
-    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -40,7 +38,6 @@ class SettingsWindow:
         self._latest_asset_name = None
         self._download_thread = None
         self._restore_display_priority = None
-        self._pets_paused_by_settings = False
         self.colors = {
             "bg": "#FFF1F6",
             "card_bg": "#FFFFFF",
@@ -177,9 +174,6 @@ class SettingsWindow:
             self.window.focus_force()
             return
 
-        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
-        self._check_and_pause_pets()
-
         self._create_window()
         self.window.focus_force()
 
@@ -197,9 +191,6 @@ class SettingsWindow:
             if auto_check:
                 self.window.after(500, self._on_check_update)  # 延迟触发检查
             return
-
-        # 检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅
-        self._check_and_pause_pets()
 
         self._create_window()
         # 切换到检查更新标签页（索引1）
@@ -219,33 +210,9 @@ class SettingsWindow:
                         self._restore_display_priority, persist=False
                     )
             self._restore_display_priority = None
-
-        # 恢复被暂停的桌宠
-        self._restore_pets_if_paused()
-
         if self.window:
             self.window.destroy()
             self.window = None
-
-    def _check_and_pause_pets(self):
-        """检查实例数，如果大于10则暂停所有桌宠以保证设置窗口流畅"""
-        try:
-            if hasattr(self.app, "pets") and len(self.app.pets) > 10:
-                # 只有在未暂停的情况下才暂停
-                if not self.app.is_paused:
-                    self.app.toggle_pause()
-                    self._pets_paused_by_settings = True
-        except Exception as e:
-            print(f"设置窗口：暂停桌宠时出错: {e}")
-
-    def _restore_pets_if_paused(self):
-        """如果之前被设置窗口暂停，则恢复桌宠运行"""
-        try:
-            if self._pets_paused_by_settings and self.app.is_paused:
-                self.app.toggle_pause()
-                self._pets_paused_by_settings = False
-        except Exception as e:
-            print(f"设置窗口：恢复桌宠时出错: {e}")
 
     def _create_personalization_tab(self, parent):
         """创建个性化标签页"""
@@ -301,8 +268,6 @@ class SettingsWindow:
 
         # 加载当前配置
         config = load_config()
-        current_total_screen = config.get("total_screen", True)
-        current_screen_idx = config.get("screen_index", DEFAULT_SCREEN_INDEX)
         current_scale_idx = config.get("scale_index", DEFAULT_SCALE_INDEX)
         current_transparency_idx = config.get(
             "transparency_index", DEFAULT_TRANSPARENCY_INDEX
@@ -394,6 +359,110 @@ class SettingsWindow:
             )
             rb.grid(row=row, column=col, sticky=tk.W, padx=20, pady=6)
 
+        # === 语音设置 (左键点击) ===
+        voice_frame = tk.Frame(inner_frame, bg=self.colors["card_bg"], relief=tk.RAISED, bd=1)
+        voice_frame.pack(fill=tk.X, pady=(0, 12), padx=2)
+
+        voice_title = tk.Label(
+            voice_frame,
+            text="🔊 语音设置",
+            font=("Microsoft YaHei UI", 10, "bold"),
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"]
+        )
+        voice_title.pack(anchor=tk.W, padx=12, pady=(8, 6))
+
+        # 左键点击语音开关
+        self.voice_enabled_var = tk.BooleanVar(value=config.get("voice_enabled", True))
+        voice_cb = tk.Checkbutton(
+            voice_frame,
+            text="启用左键点击语音",
+            variable=self.voice_enabled_var,
+            command=self._on_voice_enabled_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            selectcolor=self.colors["card_bg"],
+            activebackground=self.colors["card_bg"]
+        )
+        voice_cb.pack(anchor=tk.W, padx=12, pady=(0, 8))
+
+        # 音量滑块 (0-100%)
+        volume_frame = tk.Frame(voice_frame, bg=self.colors["card_bg"])
+        volume_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        tk.Label(volume_frame, text="音量:", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT)
+
+        self.voice_volume_var = tk.IntVar(value=config.get("voice_volume", 100))
+        volume_scale = tk.Scale(
+            volume_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.voice_volume_var,
+            command=self._on_voice_volume_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            length=120
+        )
+        volume_scale.pack(side=tk.LEFT, padx=(5, 0))
+
+        tk.Label(volume_frame, text="%", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(5, 0))
+
+        # === 音乐播放器设置 (右键点击) ===
+        music_frame = tk.Frame(inner_frame, bg=self.colors["card_bg"], relief=tk.RAISED, bd=1)
+        music_frame.pack(fill=tk.X, pady=(0, 12), padx=2)
+
+        music_title = tk.Label(
+            music_frame,
+            text="🎵 音乐播放器",
+            font=("Microsoft YaHei UI", 10, "bold"),
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"]
+        )
+        music_title.pack(anchor=tk.W, padx=12, pady=(8, 6))
+
+        # 右键音乐播放器开关
+        self.music_enabled_var = tk.BooleanVar(value=config.get("music_enabled", True))
+        music_cb = tk.Checkbutton(
+            music_frame,
+            text="启用右键音乐播放器",
+            variable=self.music_enabled_var,
+            command=self._on_music_enabled_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            selectcolor=self.colors["card_bg"],
+            activebackground=self.colors["card_bg"]
+        )
+        music_cb.pack(anchor=tk.W, padx=12, pady=(0, 8))
+
+        # 音乐音量滑块 (0-100%)
+        music_volume_frame = tk.Frame(music_frame, bg=self.colors["card_bg"])
+        music_volume_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        tk.Label(music_volume_frame, text="音乐音量:", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT)
+
+        self.music_volume_var = tk.IntVar(value=config.get("music_volume", 100))
+        music_volume_scale = tk.Scale(
+            music_volume_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.music_volume_var,
+            command=self._on_music_volume_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            length=120
+        )
+        music_volume_scale.pack(side=tk.LEFT, padx=(5, 0))
+
+        tk.Label(music_volume_frame, text="%", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(5, 0))
+
         # ===== 开机自启设置 =====
         startup_frame = tk.LabelFrame(
             inner_frame,
@@ -433,116 +502,6 @@ class SettingsWindow:
             bg=self.colors["card_bg"],
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22)
-
-        # ===== 屏幕设置 =====
-        screen_frame = tk.LabelFrame(
-            inner_frame,
-            text="屏幕设置",
-            font=self.fonts["subtitle"],
-            padx=15,
-            pady=12,
-            bg=self.colors["card_bg"],
-            fg=self.colors["accent_dark"],
-            bd=1,
-            relief=tk.SOLID,
-        )
-        screen_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
-
-        tk.Label(
-            screen_frame,
-            text="提示：更改后需重启软件生效",
-            font=self.fonts["small"],
-            fg=self.colors["subtext"],
-            bg=self.colors["card_bg"],
-            anchor=tk.W,
-        ).pack(anchor=tk.W, padx=2, pady=(6, 10))
-
-        # 模式选择：固定屏幕 / 跨屏游荡
-        self.display_mode_var = tk.StringVar(
-            value="wander" if current_total_screen else "fixed"
-        )
-
-        # 固定屏幕选项（包含屏幕选择器）
-        fixed_frame = tk.Frame(screen_frame, bg=self.colors["card_bg"])
-        fixed_frame.pack(fill=tk.X, pady=(0, 5))
-
-        fixed_rb = tk.Radiobutton(
-            fixed_frame,
-            text="固定屏幕",
-            variable=self.display_mode_var,
-            value="fixed",
-            font=self.fonts["control"],
-            bg=self.colors["card_bg"],
-            fg=self.colors["text"],
-            activebackground=self.colors["card_bg"],
-            activeforeground=self.colors["accent_dark"],
-            selectcolor=self.colors["bg"],
-            command=self._on_display_mode_changed,
-            anchor=tk.W,
-        )
-        fixed_rb.pack(side=tk.LEFT)
-
-        # 屏幕选择器（紧随RadioButton之后）
-        self.screen_select_container = tk.Frame(fixed_frame, bg=self.colors["card_bg"])
-        self.screen_select_container.pack(side=tk.LEFT, padx=(10, 0))
-
-        # 屏幕选项
-        self.screen_var = tk.IntVar(value=current_screen_idx)
-        screen_grid = tk.Frame(self.screen_select_container, bg=self.colors["card_bg"])
-        screen_grid.pack(fill=tk.X)
-
-        screen_columns = 5
-        for i, screen_val in enumerate(SCREEN_INDEX):
-            row = i // screen_columns
-            col = i % screen_columns
-            rb = tk.Radiobutton(
-                screen_grid,
-                text=f"屏幕{int(screen_val) + 1}",
-                variable=self.screen_var,
-                value=i,
-                font=self.fonts["base"],
-                bg=self.colors["card_bg"],
-                fg=self.colors["text"],
-                activebackground=self.colors["card_bg"],
-                activeforeground=self.colors["accent_dark"],
-                selectcolor=self.colors["bg"],
-                command=self._on_screen_changed,
-                anchor=tk.W,
-            )
-            rb.grid(row=row, column=col, sticky=tk.W, padx=10, pady=3)
-
-        # 跨屏游荡选项
-        wander_frame = tk.Frame(screen_frame, bg=self.colors["card_bg"])
-        wander_frame.pack(fill=tk.X, pady=(10, 0))
-
-        wander_rb = tk.Radiobutton(
-            wander_frame,
-            text="跨屏游荡",
-            variable=self.display_mode_var,
-            value="wander",
-            font=self.fonts["control"],
-            bg=self.colors["card_bg"],
-            fg=self.colors["text"],
-            activebackground=self.colors["card_bg"],
-            activeforeground=self.colors["accent_dark"],
-            selectcolor=self.colors["bg"],
-            command=self._on_display_mode_changed,
-            anchor=tk.W,
-        )
-        wander_rb.pack(side=tk.LEFT)
-
-        # 提示文字
-        tk.Label(
-            wander_frame,
-            text="（在多个屏幕间自由移动，强烈建议开启鼠标跟随）",
-            font=self.fonts["small"],
-            fg=self.colors["subtext"],
-            bg=self.colors["card_bg"],
-            anchor=tk.W,
-        ).pack(side=tk.LEFT, padx=(5, 0))
-
-        # 根据当前模式更新UI状态
-        self._update_screen_options_visibility()
 
         # ===== 显示优先级设置 =====
         priority_frame = tk.LabelFrame(
@@ -647,16 +606,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text="警告：请根据自身电脑性能，量力而行，最多80个。",
-            font=self.fonts["small"],
-            fg=self.colors["subtext"],
-            bg=self.colors["card_bg"],
-            anchor=tk.W,
-        ).pack(anchor=tk.W, padx=2, pady=(6, 0))
-
-        tk.Label(
-            multi_frame,
-            text="超过10个时，在此界面会暂停桌宠们。",
+            text="警告：请根据自身电脑性能，量力而行",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -676,7 +626,9 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(f"请‘win+R’打开运行，输入'%appdata%/ameath_config.json'打开配置文件"),
+            text=(
+                f"请手动打开 C:\\Users\\{username}\\AppData\\Roaming\\ameath_config.json"
+            ),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -685,7 +637,7 @@ class SettingsWindow:
 
         tk.Label(
             multi_frame,
-            text=(f"手动修改 instance_count 参数为1。"),
+            text=(f"修改 instance_count 参数为1。"),
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -1055,48 +1007,6 @@ class SettingsWindow:
         config["auto_startup"] = enabled
         save_config(config)
 
-    def _on_display_mode_changed(self):
-        """显示模式改变回调（固定屏幕/跨屏游荡）"""
-        self._update_screen_options_visibility()
-        # 保存配置
-        display_mode = self.display_mode_var.get()
-        is_wander = display_mode == "wander"
-        config = load_config()
-        config["total_screen"] = is_wander
-        save_config(config)
-
-    def _update_screen_options_visibility(self):
-        """更新屏幕选项的可用状态"""
-        if not hasattr(self, "screen_select_container"):
-            return
-
-        display_mode = self.display_mode_var.get()
-
-        if display_mode == "wander":
-            # 跨屏游荡：禁用屏幕选择
-            self._set_screen_select_state(tk.DISABLED)
-        else:
-            # 固定屏幕：启用屏幕选择
-            self._set_screen_select_state(tk.NORMAL)
-
-    def _set_screen_select_state(self, state):
-        """设置屏幕选择区域的状态"""
-        if hasattr(self, "screen_select_container"):
-            for child in self.screen_select_container.winfo_children():
-                if isinstance(child, tk.Radiobutton):
-                    child.config(state=state)
-                elif isinstance(child, tk.Frame):
-                    for rb in child.winfo_children():
-                        if isinstance(rb, tk.Radiobutton):
-                            rb.config(state=state)
-
-    def _on_screen_changed(self):
-        """屏幕索引改变回调"""
-        index = self.screen_var.get()
-        config = load_config()
-        config["screen_index"] = index
-        save_config(config)
-
     def _on_display_priority_changed(self):
         """显示优先级变化回调"""
         mode = self.display_priority_var.get()
@@ -1115,19 +1025,10 @@ class SettingsWindow:
             count = 1
         if count < 1:
             count = 1
-        if count > 80:
-            count = 80
-            messagebox.showwarning("警告", "实例数量不能超过80个，已自动设置为80。")
         self.instance_count_var.set(str(count))
         config = load_config()
         config["instance_count"] = count
         save_config(config)
-
-        # 如果设置的实例数大于10，暂停所有桌宠以保证设置窗口流畅
-        if count > 10 and not self.app.is_paused:
-            self.app.toggle_pause()
-            self._pets_paused_by_settings = True
-
         if hasattr(self.app, "set_instance_count"):
             self.app.set_instance_count(count)
 
@@ -1309,7 +1210,41 @@ class SettingsWindow:
                 text="已开启更新提醒", fg=self.colors["accent"]
             )
 
+    def _on_voice_enabled_changed(self):
+        """左键语音开关变化"""
+        enabled = self.voice_enabled_var.get()
+        config = load_config()
+        config["voice_enabled"] = enabled
+        save_config(config)
+        # 通知所有宠物更新状态
+        if hasattr(self.app, 'pets'):
+            for pet in self.app.pets:
+                pet.set_voice_enabled(enabled)
 
+    def _on_voice_volume_changed(self, value):
+        """左键语音音量变化"""
+        volume = int(value)
+        config = load_config()
+        config["voice_volume"] = volume
+        save_config(config)
+        # 通知所有宠物更新音量
+        if hasattr(self.app, 'pets'):
+            for pet in self.app.pets:
+                pet.set_voice_volume(volume)
+
+    def _on_music_enabled_changed(self):
+        """右键音乐播放器开关变化"""
+        enabled = self.music_enabled_var.get()
+        config = load_config()
+        config["music_enabled"] = enabled
+        save_config(config)
+
+    def _on_music_volume_changed(self, value):
+        """音乐音量变化"""
+        volume = int(value)
+        config = load_config()
+        config["music_volume"] = volume
+        save_config(config)
 def show_settings_dialog(parent, app, version):
     """显示设置对话框的便捷函数"""
     settings = SettingsWindow(parent, app, version)
