@@ -17,12 +17,19 @@ except Exception:
 def main():
     from ameath.config import load_config
     from ameath.pet import DesktopGif
-    from ameath.settings import SettingsWindow
     from ameath.utils import check_new_version, get_version, version_greater_than
+    from ameath.settings import SettingsWindow
 
     VERSION = get_version()
 
     root = tk.Tk()
+    # 立即隐藏窗口，避免闪烁
+    root.withdraw()
+
+    # 创建根窗口后立即加载自定义字体
+    from ameath.fonts import _load_zpix_font
+
+    _load_zpix_font()
     # 立即隐藏窗口，避免闪烁
     root.withdraw()
 

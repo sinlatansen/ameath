@@ -10,6 +10,7 @@ import threading
 from PIL import Image, ImageTk
 
 from .config import load_config, save_config, set_auto_startup
+from .fonts import get_font_config
 from .constants import (
     SCREEN_INDEX,
     SCALE_OPTIONS,
@@ -52,12 +53,14 @@ class SettingsWindow:
             "tab_bg": "#FFE1EE",
             "tab_active": "#FFD1E5",
         }
+        font_config = get_font_config()
+        self.font_family = font_config["family"]
         self.fonts = {
-            "title": ("Microsoft YaHei UI", 12, "bold"),
-            "subtitle": ("Microsoft YaHei UI", 11, "bold"),
-            "base": ("Microsoft YaHei UI", 10),
-            "small": ("Microsoft YaHei UI", 9),
-            "control": ("Microsoft YaHei UI", 11),
+            "title": font_config["title"],
+            "subtitle": font_config["subtitle"],
+            "base": font_config["base"],
+            "small": font_config["small"],
+            "control": font_config["control"],
         }
 
     def _configure_theme(self):
@@ -108,12 +111,11 @@ class SettingsWindow:
         if parent_was_hidden:
             self.parent.withdraw()
         self.window.title("设置")
-        # 窗口尺寸: 1000x800（自适应屏幕）
         self.window.update_idletasks()
         screen_w = self.window.winfo_screenwidth()
         screen_h = self.window.winfo_screenheight()
-        window_w = min(1000, max(600, screen_w - 80))
-        window_h = min(800, max(520, screen_h - 80))
+        window_w = min(1200, max(1000, screen_w - 80))
+        window_h = min(800, max(700, screen_h - 80))
         self.window.geometry(f"{window_w}x{window_h}")
         self.window.minsize(min(900, window_w), min(650, window_h))
         self.window.resizable(True, True)
@@ -946,7 +948,7 @@ class SettingsWindow:
         tk.Label(
             frame,
             text="飞吧，朝向春天",
-            font=("Microsoft YaHei UI", 20, "bold"),
+            font=(self.font_family, 20, "bold"),
             fg=self.colors["accent_dark"],
             bg=self.colors["bg"],
         ).pack(pady=(0, 10))
