@@ -626,10 +626,10 @@ class MusicPlayer:
 
     def _auto_next_track(self):
         """自动播放下一首（无GUI版本）"""
-        self.is_playing = False
-        self._sync_to_shared()
+        # 先安全停止当前播放，确保资源释放
+        self.safe_stop_playback()
 
-        # 自动切换到下一首
+        # 更新索引
         if len(self.music_files) > 0:
             if self.current_index >= len(self.music_files) - 1:
                 self.current_index = 0
@@ -637,8 +637,11 @@ class MusicPlayer:
                 self.current_index += 1
 
             # 延迟一下再播放下一首
-            time.sleep(0.5)
+            time.sleep(0.1)
             self.play_current_track_background()
+        else:
+            self.is_playing = False
+            self._sync_to_shared()
 
     def on_playback_finished(self):
         """播放完成回调（GUI版本）"""
@@ -737,6 +740,13 @@ class MusicPlayer:
         try:
             current_file = self.music_files[self.current_index]
             self.current_song_name = os.path.basename(current_file)
+
+            # === 新增：重置参数，避免残留 ===
+            self.audio_data = None
+            self.sample_rate = None
+            self.channels = None
+            self.total_length = 0
+            # ===================================
 
             # 加载新音频
             self.audio_data = self.load_wav_file(current_file)
