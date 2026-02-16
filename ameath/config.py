@@ -4,6 +4,7 @@ import sys
 
 from .constants import (
     CONFIG_FILE,
+    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -15,10 +16,12 @@ from .constants import (
 
 
 DEFAULT_CONFIG = {
+    "total_screen": False,
+    "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
-    "click_through": True,
+    "click_through": False,
     "follow_mouse": False,
     "display_priority": 1,
     "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -54,6 +57,14 @@ def _sanitize_config(config):
         return DEFAULT_CONFIG.copy()
 
     result = DEFAULT_CONFIG.copy()
+    result["total_screen"] = _coerce_bool(
+        config.get("total_screen"), DEFAULT_CONFIG["total_screen"]
+    )
+    result["screen_index"] = _coerce_int(
+        config.get("screen_index"),
+        DEFAULT_CONFIG["screen_index"],
+        min_value=0,
+    )
     result["scale_index"] = _coerce_int(
         config.get("scale_index"),
         DEFAULT_CONFIG["scale_index"],
@@ -91,6 +102,7 @@ def _sanitize_config(config):
         config.get("instance_count"),
         DEFAULT_CONFIG["instance_count"],
         min_value=1,
+        max_value=80,
     )
     result["skip_updates"] = _coerce_bool(
         config.get("skip_updates"), DEFAULT_CONFIG["skip_updates"]
@@ -196,7 +208,7 @@ def set_auto_startup(enable):
 
 
 def check_and_fix_startup():
-    """检查开机自启路径是否正确（exe移动后自动修复"""
+    """检查开机自启路径是否正确（exe移动后自动修复）"""
     if not getattr(sys, "frozen", False):
         return  # 只处理打包后的exe
 

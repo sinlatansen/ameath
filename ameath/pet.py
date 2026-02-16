@@ -5,9 +5,11 @@ import random
 import tkinter as tk
 from tkinter import Menu
 from typing import Any
+from screeninfo import get_monitors
 import threading
 from .config import load_config, save_config, check_and_fix_startup
 from .constants import (
+    DEFAULT_SCREEN_INDEX,
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
@@ -85,6 +87,8 @@ class DesktopGif:
 
         # 加载配置
         config = load_config()
+        self.total_screen = config.get("total_screen", True)
+        self.screen_index = config.get("screen_index", DEFAULT_SCREEN_INDEX)
         self.scale_index = config.get("scale_index", DEFAULT_SCALE_INDEX)
         self.auto_startup = config.get("auto_startup", False)
         self.scale = SCALE_OPTIONS[self.scale_index]
@@ -92,7 +96,40 @@ class DesktopGif:
         self.wander_idle_stay_mode = config.get(
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
+        # 获取屏幕
+        monitors = get_monitors()
+        if self.screen_index < 0 or self.screen_index + 1 > len(monitors):
+            target_monitor = monitors[0]
+            print("屏幕设置非法,使用主屏")
+            config["screen_index"] = 0
+            save_config(config)
+        else:
+            target_monitor = monitors[self.screen_index]
 
+        # 按屏幕模式获取屏幕高度和宽度
+        left = float("inf")
+        top = float("inf")
+        right = float("-inf")
+        bottom = float("-inf")
+        if self.total_screen:
+            # 多屏模式
+            for m in monitors:
+                left = min(left, m.x)
+                top = min(top, m.y)
+                right = max(right, m.x + m.width)
+                bottom = max(bottom, m.y + m.height)
+        else:
+            # 单屏模式
+            left = target_monitor.x
+            top = target_monitor.y
+            right = target_monitor.x + target_monitor.width
+            bottom = target_monitor.y + target_monitor.height
+
+        # 可活动区域
+        self.screen_x = left
+        self.screen_y = top
+        self.screen_w = right
+        self.screen_h = bottom
         # 检查开机自启路径是否正确（exe移动后自动修复）
         check_and_fix_startup()
 
@@ -143,9 +180,9 @@ class DesktopGif:
         self.w = self.current_frames[0].width()
         self.h = self.current_frames[0].height()
 
-        # 不要放在 (0,0)
-        self.x = 200
-        self.y = 200
+        # 初始出现在屏幕随机位置（配合多开）
+        self.x = random.randint(self.screen_x, self.screen_w - self.w)
+        self.y = random.randint(self.screen_y, self.screen_h - self.h)
         root.geometry(f"{self.w}x{self.h}+{self.x}+{self.y}")
 
         # 强制刷新，让 winfo_x/y 生效
@@ -344,8 +381,8 @@ class DesktopGif:
             ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
             width = rect.right - rect.left
             height = rect.bottom - rect.top
-            screen_w = self.root.winfo_screenwidth()
-            screen_h = self.root.winfo_screenheight()
+            screen_w = self.screen_w
+            screen_h = self.screen_h
             return width >= screen_w and height >= screen_h
         except Exception:
             return False
@@ -623,23 +660,23 @@ class DesktopGif:
             side = random.choice(["left", "right", "top", "bottom"])
             margin = RESPAWN_MARGIN + 50  # 比重生距离再远一点
             if side == "left":
-                return (-margin, random.randint(0, self.screen_h - self.h))
+                return (-margin, random.randint(self.screen_y, self.screen_h - self.h))
             elif side == "right":
                 return (
                     self.screen_w + margin,
-                    random.randint(0, self.screen_h - self.h),
+                    random.randint(self.screen_y, self.screen_h - self.h),
                 )
             elif side == "top":
-                return (random.randint(0, self.screen_w - self.w), -margin)
+                return (random.randint(self.screen_x, self.screen_w - self.w), -margin)
             else:  # bottom
                 return (
-                    random.randint(0, self.screen_w - self.w),
+                    random.randint(self.screen_x, self.screen_w - self.w),
                     self.screen_h + margin,
                 )
         else:
             return (
-                random.randint(0, self.screen_w - self.w),
-                random.randint(0, self.screen_h - self.h),
+                random.randint(self.screen_x, self.screen_w - self.w),
+                random.randint(self.screen_y, self.screen_h - self.h),
             )
 
     def get_follow_target(self):
@@ -651,8 +688,8 @@ class DesktopGif:
         tx = mx + random.randint(-offset, offset)
         ty = my + random.randint(-offset, offset)
         # 限制在屏幕内
-        tx = max(0, min(self.screen_w - self.w, tx))
-        ty = max(0, min(self.screen_h - self.h, ty))
+        tx = max(self.screen_x, min(self.screen_w - self.w, tx))
+        ty = max(self.screen_y, min(self.screen_h - self.h, ty))
         return tx, ty
 
     def respawn_from_edge(self):
@@ -660,16 +697,16 @@ class DesktopGif:
         side = random.choice(["left", "right", "top", "bottom"])
         if side == "left":
             self.x = -RESPAWN_MARGIN
-            self.y = random.randint(0, self.screen_h - self.h)
+            self.y = random.randint(self.screen_y, self.screen_h - self.h)
         elif side == "right":
             self.x = self.screen_w + RESPAWN_MARGIN
-            self.y = random.randint(0, self.screen_h - self.h)
+            self.y = random.randint(self.screen_y, self.screen_h - self.h)
         elif side == "top":
             self.y = -RESPAWN_MARGIN
-            self.x = random.randint(0, self.screen_w - self.w)
+            self.x = random.randint(self.screen_x, self.screen_w - self.w)
         else:  # bottom
             self.y = self.screen_h + RESPAWN_MARGIN
-            self.x = random.randint(0, self.screen_w - self.w)
+            self.x = random.randint(self.screen_x, self.screen_w - self.w)
 
         # 给一点入场速度
         self.vx = random.choice([-3, 3])
@@ -680,9 +717,9 @@ class DesktopGif:
         escaped = False
 
         # 检测是否出屏
-        if self.x < -self.w or self.x > self.screen_w:
+        if self.x < self.screen_x or self.x > self.screen_w - self.w:
             escaped = True
-        if self.y < -self.h or self.y > self.screen_h:
+        if self.y < self.screen_y or self.y > self.screen_h - self.h:
             escaped = True
 
         if escaped:
@@ -694,8 +731,8 @@ class DesktopGif:
                 self.vx = -self.vx
                 self.vy = -self.vy
                 # 拉回屏幕内
-                self.x = max(0, min(self.screen_w - self.w, self.x))
-                self.y = max(0, min(self.screen_h - self.h, self.y))
+                self.x = max(self.screen_x, min(self.screen_w - self.w, self.x))
+                self.y = max(self.screen_y, min(self.screen_h - self.h, self.y))
         return False
 
     # ============ 动画方法 ============
@@ -857,8 +894,8 @@ class DesktopGif:
         if not self.handle_edge():
             # 没出屏时才检查边界碰撞
             hit_edge = False
-            if self.x <= 0:
-                self.x = 0
+            if self.x <= self.screen_x:
+                self.x = self.screen_x
                 self.vx = abs(self.vx)  # 向右反弹
                 hit_edge = True
             elif self.x + self.w >= self.screen_w:
@@ -866,8 +903,8 @@ class DesktopGif:
                 self.vx = -abs(self.vx)  # 向左反弹
                 hit_edge = True
 
-            if self.y <= 0:
-                self.y = 0
+            if self.y <= self.screen_y:
+                self.y = self.screen_y
                 self.vy = abs(self.vy)  # 向下
                 hit_edge = True
             elif self.y + self.h >= self.screen_h:

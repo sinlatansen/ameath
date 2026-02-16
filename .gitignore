@@ -1,15 +1,8 @@
-# Python-generated files
+venv/
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-
-config.json
-git_hash.txt
-
-nul
+*.pyc
+*.log
+*.spec
+uv.lock
+.idea/
+.python-version
