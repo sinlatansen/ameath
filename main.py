@@ -122,11 +122,13 @@ def main():
         def hide_all(self):
             self._visible = False
             for pet in self.pets:
+                pet._user_hidden = True  # 标记为用户手动隐藏
                 pet.root.withdraw()
 
         def show_all(self):
             self._visible = True
             for pet in self.pets:
+                pet._user_hidden = False  # 清除用户手动隐藏标记
                 pet.root.deiconify()
 
         def is_visible(self):

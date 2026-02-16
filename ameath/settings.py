@@ -92,7 +92,21 @@ class SettingsWindow:
 
     def _create_window(self):
         """创建设置窗口（内部方法）"""
+        # 临时显示父窗口以确保 Toplevel 能正常创建
+        parent_was_hidden = False
+        try:
+            parent_was_hidden = not self.parent.winfo_viewable()
+        except Exception:
+            pass
+
+        if parent_was_hidden:
+            self.parent.deiconify()
+
         self.window = tk.Toplevel(self.parent)
+
+        # 父窗口可以再次隐藏（设置窗口已独立，不受影响）
+        if parent_was_hidden:
+            self.parent.withdraw()
         self.window.title("设置")
         # 窗口尺寸: 1000x800（自适应屏幕）
         self.window.update_idletasks()
@@ -104,7 +118,8 @@ class SettingsWindow:
         self.window.minsize(min(900, window_w), min(650, window_h))
         self.window.resizable(True, True)
         self.window.attributes("-topmost", True)
-        self.window.transient(self.parent)
+        # 注意：不使用 transient，否则父窗口隐藏时设置窗口也会消失
+        # self.window.transient(self.parent)
         self.window.configure(bg=self.colors["bg"])
         self._configure_theme()
 
