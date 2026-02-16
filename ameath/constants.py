@@ -1,5 +1,7 @@
 import os
 from screeninfo import get_monitors
+
+monitors = get_monitors()
 # ============ 配置 ============
 GIF_DIR = "gifs"
 SCREEN_INDEX = [round(i , 1) for i in range(len(monitors))] # 所在屏幕
@@ -76,6 +78,7 @@ WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
 
 STAY_PUT_CHANCE = 0.3  # 停下时原地不动的概率
+
 # 语音设置
 DEFAULT_VOICE_ENABLED = True
 DEFAULT_VOICE_VOLUME = 100
