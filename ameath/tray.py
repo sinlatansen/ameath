@@ -15,7 +15,7 @@ def create_tray(app, version):
         icon_gif = Image.open(resource_path("gifs/ameath.gif"))
         icon_gif.seek(0)  # 取第一帧
         icon_image = icon_gif.convert("RGBA")
-        icon_image = icon_image.resize((64, 64), Image.Resampling.LANCZOS)
+        icon_image = icon_image.resize((64, 64), Image.Resampling.BOX)
     except Exception as e:
         print(f"加载托盘图标失败，使用默认图标: {e}")
         icon_image = Image.new("RGB", (64, 64), color="pink")
