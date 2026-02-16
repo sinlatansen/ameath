@@ -3,9 +3,10 @@ from ctypes import wintypes
 import os
 import random
 import tkinter as tk
+from tkinter import Menu
 from typing import Any
 from screeninfo import get_monitors
-
+import threading
 from .config import load_config, save_config, check_and_fix_startup
 from .constants import (
     DEFAULT_SCREEN_INDEX,
@@ -60,6 +61,7 @@ from .constants import (
 )
 from .utils import flip_frames, load_gif_frames, resource_path
 from .voice import VoicePlayer
+from .music_player import MusicPlayer
 
 
 class DesktopGif:
@@ -94,7 +96,6 @@ class DesktopGif:
         self.wander_idle_stay_mode = config.get(
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
-
         # 获取屏幕
         monitors = get_monitors()
         if self.screen_index < 0 or self.screen_index + 1 > len(monitors):
@@ -199,6 +200,9 @@ class DesktopGif:
         )
         self.set_transparency(self.transparency_index)
 
+        self.screen_w = root.winfo_screenwidth()
+        self.screen_h = root.winfo_screenheight()
+
         self.vx = SPEED_X
         self.vy = SPEED_Y
 
@@ -230,6 +234,22 @@ class DesktopGif:
 
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
+        # 音乐播放器引用
+        self.music_player_window = None
+        # 加载语音音量配置
+        try:
+            self.voice_player = VoicePlayer()
+            # 加载语音配置
+            config = load_config()
+            voice_enabled = config.get("voice_enabled", True)
+            voice_volume = config.get("voice_volume", 100)
+            if self.voice_player:
+                self.voice_player.set_volume(voice_volume)
+        except Exception:
+            self.voice_player = None
+
+        # 绑定右键事件
+        self.label.bind("<Button-3>", self.handle_right_click)
 
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""
@@ -243,6 +263,55 @@ class DesktopGif:
         except Exception:
             pass
         self.root.after(500, self.ensure_visibility)
+
+    def quit_app(self):
+        """退出应用程序"""
+        try:
+            if hasattr(self.app, 'quit') and callable(getattr(self.app, 'quit')):
+                self.app.quit()
+            elif hasattr(self.app, 'stop') and callable(getattr(self.app, 'stop')):
+                # 如果是 pystray Icon 对象
+                self.app.stop()
+            else:
+                self.root.quit()
+        except:
+            self.root.quit()
+
+    def handle_right_click(self, event):
+        """处理右键点击事件"""
+        config = load_config()
+        music_enabled = config.get("music_enabled", False)
+
+        if music_enabled:
+            self.open_music_player()
+
+    def open_music_player(self):
+        """打开音乐播放器"""
+        if self.music_player_window is not None and self.music_player_window.winfo_exists():
+            self.music_player_window.lift()
+            return
+
+        self.music_player_window = tk.Toplevel(self.root)
+        self.music_player_window.protocol("WM_DELETE_WINDOW", self.on_music_player_close)
+
+        try:
+            from .music_player import MusicPlayer
+            MusicPlayer(self.music_player_window, self.on_music_player_position_unlocked)
+        except ImportError as e:
+            print(f"无法导入音乐播放器: {e}")
+            import tkinter.messagebox as messagebox
+            messagebox.showerror("错误", "音乐播放器模块加载失败")
+            self.music_player_window.destroy()
+
+    def on_music_player_close(self):
+        """音乐播放器关闭时的回调"""
+        if self.music_player_window:
+            self.music_player_window.destroy()
+            self.music_player_window = None
+
+    def on_music_player_position_unlocked(self):
+        """音乐播放器位置解锁回调"""
+        pass
 
     def _apply_topmost(self):
         if self._hidden_by_fullscreen:
@@ -458,6 +527,20 @@ class DesktopGif:
             self.current_delays = self.move_delays
             self.frame_index = 0
 
+    def set_voice_enabled(self, enabled):
+        """设置语音是否启用"""
+        config = load_config()
+        config["voice_enabled"] = enabled
+        save_config(config)
+
+    def set_voice_volume(self, volume):
+        """设置语音音量"""
+        config = load_config()
+        config["voice_volume"] = volume
+        save_config(config)
+        if self.voice_player:
+            self.voice_player.set_volume(volume)
+
     def start_drag(self, event):
         """开始拖动（鼠标穿透关闭时才可用）"""
         if self.click_through:
@@ -475,9 +558,11 @@ class DesktopGif:
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
-        # 播放随机语音
+        # 播放随机语音（如果启用）
         if self.voice_player:
-            self.voice_player.play_random_voice()
+            config = load_config()
+            if config.get("voice_enabled", True):
+                self.voice_player.play_random_voice()
 
     def do_drag(self, event):
         """拖动中"""
@@ -713,8 +798,8 @@ class DesktopGif:
 
         # 如果关闭了跟随模式，强制重置为游荡模式
         if not self.follow_mouse and self.motion_state in (
-            MOTION_FOLLOW,
-            MOTION_CURIOUS,
+                MOTION_FOLLOW,
+                MOTION_CURIOUS,
         ):
             self.motion_state = MOTION_WANDER
 

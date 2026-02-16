@@ -394,6 +394,110 @@ class SettingsWindow:
             )
             rb.grid(row=row, column=col, sticky=tk.W, padx=20, pady=6)
 
+        # === 语音设置 (左键点击) ===
+        voice_frame = tk.Frame(inner_frame, bg=self.colors["card_bg"], relief=tk.RAISED, bd=1)
+        voice_frame.pack(fill=tk.X, pady=(0, 12), padx=2)
+
+        voice_title = tk.Label(
+            voice_frame,
+            text="🔊 语音设置",
+            font=("Microsoft YaHei UI", 10, "bold"),
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"]
+        )
+        voice_title.pack(anchor=tk.W, padx=12, pady=(8, 6))
+
+        # 左键点击语音开关
+        self.voice_enabled_var = tk.BooleanVar(value=config.get("voice_enabled", True))
+        voice_cb = tk.Checkbutton(
+            voice_frame,
+            text="启用左键点击语音",
+            variable=self.voice_enabled_var,
+            command=self._on_voice_enabled_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            selectcolor=self.colors["card_bg"],
+            activebackground=self.colors["card_bg"]
+        )
+        voice_cb.pack(anchor=tk.W, padx=12, pady=(0, 8))
+
+        # 音量滑块 (0-100%)
+        volume_frame = tk.Frame(voice_frame, bg=self.colors["card_bg"])
+        volume_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        tk.Label(volume_frame, text="音量:", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT)
+
+        self.voice_volume_var = tk.IntVar(value=config.get("voice_volume", 100))
+        volume_scale = tk.Scale(
+            volume_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.voice_volume_var,
+            command=self._on_voice_volume_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            length=120
+        )
+        volume_scale.pack(side=tk.LEFT, padx=(5, 0))
+
+        tk.Label(volume_frame, text="%", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(5, 0))
+
+        # === 音乐播放器设置 (右键点击) ===
+        music_frame = tk.Frame(inner_frame, bg=self.colors["card_bg"], relief=tk.RAISED, bd=1)
+        music_frame.pack(fill=tk.X, pady=(0, 12), padx=2)
+
+        music_title = tk.Label(
+            music_frame,
+            text="🎵 音乐播放器",
+            font=("Microsoft YaHei UI", 10, "bold"),
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"]
+        )
+        music_title.pack(anchor=tk.W, padx=12, pady=(8, 6))
+
+        # 右键音乐播放器开关
+        self.music_enabled_var = tk.BooleanVar(value=config.get("music_enabled", True))
+        music_cb = tk.Checkbutton(
+            music_frame,
+            text="启用右键音乐播放器",
+            variable=self.music_enabled_var,
+            command=self._on_music_enabled_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            selectcolor=self.colors["card_bg"],
+            activebackground=self.colors["card_bg"]
+        )
+        music_cb.pack(anchor=tk.W, padx=12, pady=(0, 8))
+
+        # 音乐音量滑块 (0-100%)
+        music_volume_frame = tk.Frame(music_frame, bg=self.colors["card_bg"])
+        music_volume_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        tk.Label(music_volume_frame, text="音乐音量:", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT)
+
+        self.music_volume_var = tk.IntVar(value=config.get("music_volume", 100))
+        music_volume_scale = tk.Scale(
+            music_volume_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.music_volume_var,
+            command=self._on_music_volume_changed,
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            length=120
+        )
+        music_volume_scale.pack(side=tk.LEFT, padx=(5, 0))
+
+        tk.Label(music_volume_frame, text="%", font=("Microsoft YaHei UI", 9),
+                 bg=self.colors["card_bg"], fg=self.colors["text"]).pack(side=tk.LEFT, padx=(5, 0))
+
         # ===== 开机自启设置 =====
         startup_frame = tk.LabelFrame(
             inner_frame,
@@ -1309,7 +1413,41 @@ class SettingsWindow:
                 text="已开启更新提醒", fg=self.colors["accent"]
             )
 
+    def _on_voice_enabled_changed(self):
+        """左键语音开关变化"""
+        enabled = self.voice_enabled_var.get()
+        config = load_config()
+        config["voice_enabled"] = enabled
+        save_config(config)
+        # 通知所有宠物更新状态
+        if hasattr(self.app, 'pets'):
+            for pet in self.app.pets:
+                pet.set_voice_enabled(enabled)
 
+    def _on_voice_volume_changed(self, value):
+        """左键语音音量变化"""
+        volume = int(value)
+        config = load_config()
+        config["voice_volume"] = volume
+        save_config(config)
+        # 通知所有宠物更新音量
+        if hasattr(self.app, 'pets'):
+            for pet in self.app.pets:
+                pet.set_voice_volume(volume)
+
+    def _on_music_enabled_changed(self):
+        """右键音乐播放器开关变化"""
+        enabled = self.music_enabled_var.get()
+        config = load_config()
+        config["music_enabled"] = enabled
+        save_config(config)
+
+    def _on_music_volume_changed(self, value):
+        """音乐音量变化"""
+        volume = int(value)
+        config = load_config()
+        config["music_volume"] = volume
+        save_config(config)
 def show_settings_dialog(parent, app, version):
     """显示设置对话框的便捷函数"""
     settings = SettingsWindow(parent, app, version)
