@@ -536,29 +536,31 @@ class MusicPlayer:
             print(f"加载WAV文件失败: {e}")
             return None
 
-    def safe_stop_playback(self):
-        """安全停止播放"""
-        self.stop_event.set()
+def safe_stop_playback(self):
+    self.stop_event.set()
 
-        while not self.audio_queue.empty():
-            try:
-                self.audio_queue.get_nowait()
-            except:
-                break
+    # 清空队列
+    while not self.audio_queue.empty():
+        try:
+            self.audio_queue.get_nowait()
+        except:
+            break
 
-        if self.stream:
-            try:
-                self.stream.stop()
-                self.stream.close()
-            except:
-                pass
-            self.stream = None
+    # 关闭流
+    if self.stream:
+        try:
+            self.stream.stop()
+            self.stream.close()
+        except:
+            pass
+        self.stream = None
 
-        if self.playback_thread and self.playback_thread.is_alive():
-            self.playback_thread.join(timeout=0.5)
+    # 只有在不是 playback_thread 本身时才 join
+    if (self.playback_thread 
+        and self.playback_thread.is_alive() 
+        and self.playback_thread != threading.current_thread()):
+        self.playback_thread.join(timeout=0.5)
 
-        self.is_playing = False
-        self.is_paused = False
 
     def audio_callback(self, outdata, frames, time_info, status):
         """音频回调函数"""
@@ -625,20 +627,22 @@ class MusicPlayer:
             print(f"音频填充错误: {e}")
 
     def _auto_next_track(self):
-        """自动播放下一首（无GUI版本）"""
-        self.is_playing = False
-        self._sync_to_shared()
+        """自动播放下一首（无GUI版本）—— 由 playback_thread 调用"""
 
-        # 自动切换到下一首
-        if len(self.music_files) > 0:
-            if self.current_index >= len(self.music_files) - 1:
-                self.current_index = 0
-            else:
-                self.current_index += 1
+        # 更新索引
+        if len(self.music_files) == 0:
+            self.is_playing = False
+            self._sync_to_shared()
+            return
 
-            # 延迟一下再播放下一首
-            time.sleep(0.5)
-            self.play_current_track_background()
+        if self.current_index >= len(self.music_files) - 1:
+            self.current_index = 0
+        else:
+            self.current_index += 1
+
+        # 等待一小会儿
+        time.sleep(0.1)
+        self.play_current_track_background()
 
     def on_playback_finished(self):
         """播放完成回调（GUI版本）"""
@@ -729,55 +733,59 @@ class MusicPlayer:
                 except tk.TclError:
                     pass
 
-    def play_current_track_background(self):
-        """后台播放（无GUI）"""
-        if self.current_index < 0 or self.current_index >= len(self.music_files):
+def play_current_track_background(self):
+    """后台播放（无GUI）"""
+    if self.current_index < 0 or self.current_index >= len(self.music_files):
+        return
+
+    try:
+        # === 关键：重置所有音频状态 ===
+        self.audio_data = None
+        self.sample_rate = None
+        self.channels = None
+        self.total_length = 0
+        self.current_position = 0
+        self.paused_position = 0
+        # ==============================
+
+        current_file = self.music_files[self.current_index]
+        self.current_song_name = os.path.basename(current_file)
+
+        self.audio_data = self.load_wav_file(current_file)
+        if self.audio_data is None:
             return
 
-        try:
-            current_file = self.music_files[self.current_index]
-            self.current_song_name = os.path.basename(current_file)
+        # 创建新事件对象（避免复用旧事件）
+        self.stop_event = threading.Event()
+        self.pause_event = threading.Event()
+        self.is_paused = False
+        self.audio_queue = queue.Queue(maxsize=10)
 
-            # 加载新音频
-            self.audio_data = self.load_wav_file(current_file)
+        # 创建新的 OutputStream
+        self.stream = sd.OutputStream(
+            samplerate=self.sample_rate,
+            channels=self.channels,
+            dtype=np.float32,
+            blocksize=int(self.sample_rate * 0.05),
+            callback=self.audio_callback
+        )
 
-            if self.audio_data is None:
-                return
+        # 启动新线程
+        self.playback_thread = threading.Thread(
+            target=self.feed_audio_thread,
+            args=(0,),
+            daemon=True
+        )
+        self.playback_thread.start()
 
-            # 重置状态
-            self.stop_event = threading.Event()
-            self.pause_event = threading.Event()
-            self.is_paused = False
-            self.paused_position = 0
-            self.current_position = 0
-            self.audio_queue = queue.Queue(maxsize=10)
+        self.stream.start()
+        self.is_playing = True
+        self._sync_to_shared()
 
-            # 创建输出流
-            self.stream = sd.OutputStream(
-                samplerate=self.sample_rate,
-                channels=self.channels,
-                dtype=np.float32,
-                blocksize=int(self.sample_rate * 0.05),
-                callback=self.audio_callback
-            )
-
-            # 启动填充线程
-            self.playback_thread = threading.Thread(
-                target=self.feed_audio_thread,
-                args=(0,)
-            )
-            self.playback_thread.daemon = True
-            self.playback_thread.start()
-
-            self.stream.start()
-
-            self.is_playing = True
-            self._sync_to_shared()
-
-        except Exception as e:
-            print(f"后台播放失败: {str(e)}")
-            self.is_playing = False
-            self.is_paused = False
+    except Exception as e:
+        print(f"后台播放失败: {str(e)}")
+        self.is_playing = False
+        self.is_paused = False
 
     def toggle_play_pause(self):
         """切换播放/暂停"""
