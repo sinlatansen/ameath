@@ -12,6 +12,8 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
     EDGE_ESCAPE_CHANCE,
     FOLLOW_DISTANCE,
     FOLLOW_START_DIST,
@@ -59,6 +61,7 @@ from .constants import (
     WS_EX_TRANSPARENT,
 )
 from .utils import flip_frames, load_gif_frames, resource_path
+from .voice import VoicePlayer
 
 
 class DesktopGif:
@@ -76,6 +79,19 @@ class DesktopGif:
         root.attributes("-topmost", True)
         root.config(bg=TRANSPARENT_COLOR)
         root.attributes("-transparentcolor", TRANSPARENT_COLOR)
+
+        # 初始化语音播放器
+        try:
+            self.voice_player = VoicePlayer()
+            # 加载语音配置
+            voice_config = load_config()
+            voice_enabled = voice_config.get("voice_enabled", DEFAULT_VOICE_ENABLED)
+            voice_volume = voice_config.get("voice_volume", DEFAULT_VOICE_VOLUME)
+            if self.voice_player:
+                self.voice_player.set_enabled(voice_enabled)
+                self.voice_player.set_volume(voice_volume)
+        except Exception:
+            self.voice_player = None
 
         # 加载配置
         config = load_config()
@@ -474,6 +490,10 @@ class DesktopGif:
         self.current_delays = self.drag_delays
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
+
+        # 播放随机语音（如果启用）
+        if self.voice_player:
+            self.voice_player.play_random_voice()
 
     def do_drag(self, event):
         """拖动中"""

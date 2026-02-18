@@ -29,7 +29,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('gifs', 'gifs'), ('version.txt', '.'), ('git_hash.txt', '.')],
+    datas=[('gifs', 'gifs'), ('sound', 'sound'), ('version.txt', '.'), ('git_hash.txt', '.')],
     hiddenimports=[
         'PIL._tkinter',
         'ameath',
@@ -43,7 +43,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy', 'matplotlib', 'asyncio', 'test'],
+    excludes=['matplotlib', 'asyncio', 'test'],
     noarchive=False,
     optimize=0,
 )

@@ -8,6 +8,8 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
     SCALE_OPTIONS,
     TRANSPARENCY_OPTIONS,
 )
@@ -19,13 +21,15 @@ DEFAULT_CONFIG = {
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
-    "click_through": True,
+    "click_through": False,
     "follow_mouse": False,
     "display_priority": 1,
     "wander_idle_stay_mode": DEFAULT_WANDER_IDLE_STAY_MODE,
     "instance_count": 1,
     "skip_updates": False,
     "skip_version": None,
+    "voice_enabled": DEFAULT_VOICE_ENABLED,
+    "voice_volume": DEFAULT_VOICE_VOLUME,
 }
 
 
@@ -103,6 +107,15 @@ def _sanitize_config(config):
         config.get("skip_updates"), DEFAULT_CONFIG["skip_updates"]
     )
     result["skip_version"] = config.get("skip_version")
+    result["voice_enabled"] = _coerce_bool(
+        config.get("voice_enabled"), DEFAULT_CONFIG["voice_enabled"]
+    )
+    result["voice_volume"] = _coerce_int(
+        config.get("voice_volume"),
+        DEFAULT_CONFIG["voice_volume"],
+        min_value=0,
+        max_value=150,
+    )
     return result
 
 
