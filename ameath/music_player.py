@@ -10,7 +10,9 @@ import sounddevice as sd
 from .config import load_config, save_config
 from .utils import resource_path
 import time
+
 MUSIC_DIR = "sound/music"
+
 
 class MusicPlayer:
     """音乐播放器类 - 支持后台播放和恢复"""
@@ -44,7 +46,7 @@ class MusicPlayer:
             return
 
         # 检查是否已经初始化过
-        if hasattr(self, '_initialized') and self._initialized:
+        if hasattr(self, "_initialized") and self._initialized:
             # 更新GUI引用
             self.parent = parent
             self.position_unlock_callback = position_unlock_callback
@@ -130,12 +132,26 @@ class MusicPlayer:
         self.current_index = MusicPlayer._shared_current_index
         self.is_playing = MusicPlayer._shared_is_playing
         self.is_paused = MusicPlayer._shared_is_paused
-        self.music_files = MusicPlayer._shared_music_files if MusicPlayer._shared_music_files else []
+        self.music_files = (
+            MusicPlayer._shared_music_files if MusicPlayer._shared_music_files else []
+        )
         self.current_song_name = MusicPlayer._shared_song_name
         self.playback_thread = MusicPlayer._shared_thread
-        self.stop_event = MusicPlayer._shared_stop_event if MusicPlayer._shared_stop_event else threading.Event()
-        self.pause_event = MusicPlayer._shared_pause_event if MusicPlayer._shared_pause_event else threading.Event()
-        self.audio_queue = MusicPlayer._shared_queue if MusicPlayer._shared_queue else queue.Queue(maxsize=10)
+        self.stop_event = (
+            MusicPlayer._shared_stop_event
+            if MusicPlayer._shared_stop_event
+            else threading.Event()
+        )
+        self.pause_event = (
+            MusicPlayer._shared_pause_event
+            if MusicPlayer._shared_pause_event
+            else threading.Event()
+        )
+        self.audio_queue = (
+            MusicPlayer._shared_queue
+            if MusicPlayer._shared_queue
+            else queue.Queue(maxsize=10)
+        )
         self.stream = MusicPlayer._shared_stream
 
     def _is_gui_alive(self):
@@ -156,7 +172,7 @@ class MusicPlayer:
             music_path = resource_path(MUSIC_DIR)
             if os.path.exists(music_path):
                 for file in os.listdir(music_path):
-                    if file.lower().endswith('.wav'):
+                    if file.lower().endswith(".wav"):
                         self.music_files.append(os.path.join(music_path, file))
         except Exception as e:
             print(f"读取失败: {e}")
@@ -185,23 +201,36 @@ class MusicPlayer:
         # 加载图标
         try:
             from PIL import Image, ImageTk
+
             icon_path = resource_path("gifs/ameath.ico")
             if os.path.exists(icon_path):
                 pil_image = Image.open(icon_path)
-                pil_image = pil_image.resize((24, 24), Image.Resampling.LANCZOS)  # 调整大小
+                pil_image = pil_image.resize(
+                    (24, 24), Image.Resampling.LANCZOS
+                )  # 调整大小
                 icon_image = ImageTk.PhotoImage(pil_image)
                 icon_label = tk.Label(title_frame, image=icon_image, bg=self.blue_sky)
                 icon_label.image = icon_image
                 icon_label.pack(side=tk.LEFT, padx=(0, 10))
             else:
                 # 回退到文本
-                icon_label = tk.Label(title_frame, text="🎵", font=("Microsoft YaHei UI", 18, "bold"), bg=self.blue_sky,
-                                      fg="#E91E63")
+                icon_label = tk.Label(
+                    title_frame,
+                    text="🎵",
+                    font=("Microsoft YaHei UI", 18, "bold"),
+                    bg=self.blue_sky,
+                    fg="#E91E63",
+                )
                 icon_label.pack(side=tk.LEFT, padx=(0, 10))
         except Exception as e:
             print(f"加载图标失败: {e}")
-            icon_label = tk.Label(title_frame, text="🎵", font=("Microsoft YaHei UI", 18, "bold"), bg=self.blue_sky,
-                                  fg="#E91E63")
+            icon_label = tk.Label(
+                title_frame,
+                text="🎵",
+                font=("Microsoft YaHei UI", 18, "bold"),
+                bg=self.blue_sky,
+                fg="#E91E63",
+            )
             icon_label.pack(side=tk.LEFT, padx=(0, 10))
 
         # 标题文本
@@ -210,7 +239,7 @@ class MusicPlayer:
             text="飞行雪绒",
             font=("Microsoft YaHei UI", 18, "bold"),
             bg=self.blue_sky,
-            fg="#E91E63"
+            fg="#E91E63",
         )
         title_text_label.pack(side=tk.LEFT)
 
@@ -229,7 +258,7 @@ class MusicPlayer:
             borderwidth=1,
             yscrollcommand=scrollbar.set,
             selectbackground="#FFB6C1",
-            selectforeground=self.text_dark
+            selectforeground=self.text_dark,
         )
         self.listbox.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.listbox.yview)
@@ -239,7 +268,7 @@ class MusicPlayer:
             text=self.current_song_name,
             font=("Microsoft YaHei UI", 10, "italic"),
             bg=self.blue_sky,
-            fg=self.text_light
+            fg=self.text_light,
         )
         self.current_song_label.pack(pady=(5, 10))
 
@@ -247,8 +276,13 @@ class MusicPlayer:
         volume_frame = tk.Frame(main_frame, bg=self.blue_sky)
         volume_frame.pack(fill=tk.X, pady=(0, 15))
 
-        tk.Label(volume_frame, text="音量:", font=("Microsoft YaHei UI", 10),
-                bg=self.blue_sky, fg=self.text_dark).pack(side=tk.LEFT)
+        tk.Label(
+            volume_frame,
+            text="音量:",
+            font=("Microsoft YaHei UI", 10),
+            bg=self.blue_sky,
+            fg=self.text_dark,
+        ).pack(side=tk.LEFT)
 
         self.volume_var = tk.IntVar(value=self.music_volume)
         self.volume_scale = tk.Scale(
@@ -261,12 +295,17 @@ class MusicPlayer:
             bg=self.blue_sky,
             fg=self.text_dark,
             highlightthickness=0,
-            length=200
+            length=200,
         )
         self.volume_scale.pack(side=tk.LEFT, padx=(5, 0))
 
-        tk.Label(volume_frame, text="%", font=("Microsoft YaHei UI", 10),
-                bg=self.blue_sky, fg=self.text_dark).pack(side=tk.LEFT, padx=(5, 0))
+        tk.Label(
+            volume_frame,
+            text="%",
+            font=("Microsoft YaHei UI", 10),
+            bg=self.blue_sky,
+            fg=self.text_dark,
+        ).pack(side=tk.LEFT, padx=(5, 0))
 
         progress_frame = tk.Frame(main_frame, bg=self.blue_sky)
         progress_frame.pack(fill=tk.X, pady=(0, 15))
@@ -278,7 +317,7 @@ class MusicPlayer:
             to=100,
             variable=self.progress_var,
             orient=tk.HORIZONTAL,
-            command=self.on_progress_change
+            command=self.on_progress_change,
         )
         self.progress_bar.pack(fill=tk.X)
 
@@ -287,7 +326,7 @@ class MusicPlayer:
             text="0:00 / 0:00",
             font=("Microsoft YaHei UI", 9),
             bg=self.blue_sky,
-            fg=self.text_light
+            fg=self.text_light,
         )
         self.time_label.pack(pady=(5, 0))
 
@@ -303,20 +342,24 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=15,
-            pady=8
+            pady=8,
         )
         prev_btn.pack(side=tk.LEFT, padx=(0, 10))
 
         self.play_pause_btn = tk.Button(
             button_frame,
-            text="⏸ 暂停" if self.is_playing and not self.is_paused else ("▶ 继续" if self.is_paused else "▶ 播放"),
+            text=(
+                "⏸ 暂停"
+                if self.is_playing and not self.is_paused
+                else ("▶ 继续" if self.is_paused else "▶ 播放")
+            ),
             command=self.toggle_play_pause,
             font=("Microsoft YaHei UI", 10, "bold"),
             bg="#FFB6C1",
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=20,
-            pady=8
+            pady=8,
         )
         self.play_pause_btn.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -329,7 +372,7 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=15,
-            pady=8
+            pady=8,
         )
         next_btn.pack(side=tk.LEFT)
 
@@ -345,7 +388,7 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=10,
-            pady=5
+            pady=5,
         )
         import_btn.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -358,7 +401,7 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=10,
-            pady=5
+            pady=5,
         )
         refresh_btn.pack(side=tk.LEFT)
 
@@ -374,7 +417,7 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=15,
-            pady=6
+            pady=6,
         )
         cancel_btn.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -387,7 +430,7 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=15,
-            pady=6
+            pady=6,
         )
         close_btn.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -400,11 +443,11 @@ class MusicPlayer:
             fg=self.text_dark,
             relief=tk.FLAT,
             padx=15,
-            pady=6
+            pady=6,
         )
         stop_btn.pack(side=tk.LEFT)
 
-        self.listbox.bind('<Double-Button-1>', self.on_double_click)
+        self.listbox.bind("<Double-Button-1>", self.on_double_click)
 
         # 更新列表显示（现在listbox已经创建）
         self.update_listbox()
@@ -453,7 +496,7 @@ class MusicPlayer:
         """导入音乐文件"""
         files = filedialog.askopenfilenames(
             title="选择音乐文件",
-            filetypes=[("WAV音频文件", "*.wav"), ("所有文件", "*.*")]
+            filetypes=[("WAV音频文件", "*.wav"), ("所有文件", "*.*")],
         )
 
         if not files:
@@ -465,7 +508,7 @@ class MusicPlayer:
 
         imported_count = 0
         for file in files:
-            if file.lower().endswith('.wav'):
+            if file.lower().endswith(".wav"):
                 filename = os.path.basename(file)
                 dest_path = os.path.join(music_path, filename)
 
@@ -477,6 +520,7 @@ class MusicPlayer:
 
                 try:
                     import shutil
+
                     shutil.copy2(file, dest_path)
                     imported_count += 1
                 except Exception as e:
@@ -503,7 +547,7 @@ class MusicPlayer:
     def load_wav_file(self, filepath):
         """加载 WAV 文件为 numpy array"""
         try:
-            with wave.open(filepath, 'rb') as wav_file:
+            with wave.open(filepath, "rb") as wav_file:
                 self.channels = wav_file.getnchannels()
                 self.sample_rate = wav_file.getframerate()
                 sample_width = wav_file.getsampwidth()
@@ -536,31 +580,32 @@ class MusicPlayer:
             print(f"加载WAV文件失败: {e}")
             return None
 
-def safe_stop_playback(self):
-    self.stop_event.set()
+    def safe_stop_playback(self):
+        self.stop_event.set()
 
-    # 清空队列
-    while not self.audio_queue.empty():
-        try:
-            self.audio_queue.get_nowait()
-        except:
-            break
+        # 清空队列
+        while not self.audio_queue.empty():
+            try:
+                self.audio_queue.get_nowait()
+            except:
+                break
 
-    # 关闭流
-    if self.stream:
-        try:
-            self.stream.stop()
-            self.stream.close()
-        except:
-            pass
-        self.stream = None
+        # 关闭流
+        if self.stream:
+            try:
+                self.stream.stop()
+                self.stream.close()
+            except:
+                pass
+            self.stream = None
 
-    # 只有在不是 playback_thread 本身时才 join
-    if (self.playback_thread 
-        and self.playback_thread.is_alive() 
-        and self.playback_thread != threading.current_thread()):
-        self.playback_thread.join(timeout=0.5)
-
+        # 只有在不是 playback_thread 本身时才 join
+        if (
+            self.playback_thread
+            and self.playback_thread.is_alive()
+            and self.playback_thread != threading.current_thread()
+        ):
+            self.playback_thread.join(timeout=0.5)
 
     def audio_callback(self, outdata, frames, time_info, status):
         """音频回调函数"""
@@ -568,7 +613,9 @@ def safe_stop_playback(self):
             data = self.audio_queue.get_nowait()
 
             if len(data) < frames:
-                padding = np.zeros((frames - len(data), self.channels), dtype=np.float32)
+                padding = np.zeros(
+                    (frames - len(data), self.channels), dtype=np.float32
+                )
                 data = np.concatenate([data, padding])
             elif len(data) > frames:
                 data = data[:frames]
@@ -602,7 +649,9 @@ def safe_stop_playback(self):
 
                 if len(chunk) < chunk_size:
                     if self.channels > 1:
-                        padding = np.zeros((chunk_size - len(chunk), self.channels), dtype=np.float32)
+                        padding = np.zeros(
+                            (chunk_size - len(chunk), self.channels), dtype=np.float32
+                        )
                     else:
                         padding = np.zeros(chunk_size - len(chunk), dtype=np.float32)
                     chunk = np.concatenate([chunk, padding])
@@ -644,6 +693,25 @@ def safe_stop_playback(self):
         time.sleep(0.1)
         self.play_current_track_background()
 
+    def _auto_next_track(self):
+        """自动播放下一首（无GUI版本）"""
+        # 先安全停止当前播放，确保资源释放
+        self.safe_stop_playback()
+
+        # 更新索引
+        if len(self.music_files) > 0:
+            if self.current_index >= len(self.music_files) - 1:
+                self.current_index = 0
+            else:
+                self.current_index += 1
+
+            # 延迟一下再播放下一首
+            time.sleep(0.1)
+            self.play_current_track_background()
+        else:
+            self.is_playing = False
+            self._sync_to_shared()
+
     def on_playback_finished(self):
         """播放完成回调（GUI版本）"""
         self.is_playing = False
@@ -672,7 +740,9 @@ def safe_stop_playback(self):
             # 安全地更新GUI
             if self._is_gui_alive() and self.current_song_label is not None:
                 try:
-                    self.current_song_label.config(text=f"正在播放: {self.current_song_name}")
+                    self.current_song_label.config(
+                        text=f"正在播放: {self.current_song_name}"
+                    )
                 except tk.TclError:
                     pass
 
@@ -698,13 +768,12 @@ def safe_stop_playback(self):
                 channels=self.channels,
                 dtype=np.float32,
                 blocksize=int(self.sample_rate * 0.05),
-                callback=self.audio_callback
+                callback=self.audio_callback,
             )
 
             # 启动填充线程
             self.playback_thread = threading.Thread(
-                target=self.feed_audio_thread,
-                args=(0,)
+                target=self.feed_audio_thread, args=(0,)
             )
             self.playback_thread.daemon = True
             self.playback_thread.start()
@@ -733,59 +802,57 @@ def safe_stop_playback(self):
                 except tk.TclError:
                     pass
 
-def play_current_track_background(self):
-    """后台播放（无GUI）"""
-    if self.current_index < 0 or self.current_index >= len(self.music_files):
-        return
-
-    try:
-        # === 关键：重置所有音频状态 ===
-        self.audio_data = None
-        self.sample_rate = None
-        self.channels = None
-        self.total_length = 0
-        self.current_position = 0
-        self.paused_position = 0
-        # ==============================
-
-        current_file = self.music_files[self.current_index]
-        self.current_song_name = os.path.basename(current_file)
-
-        self.audio_data = self.load_wav_file(current_file)
-        if self.audio_data is None:
+    def play_current_track_background(self):
+        """后台播放（无GUI）"""
+        if self.current_index < 0 or self.current_index >= len(self.music_files):
             return
 
-        # 创建新事件对象（避免复用旧事件）
-        self.stop_event = threading.Event()
-        self.pause_event = threading.Event()
-        self.is_paused = False
-        self.audio_queue = queue.Queue(maxsize=10)
+        try:
+            # === 关键：重置所有音频状态 ===
+            self.audio_data = None
+            self.sample_rate = None
+            self.channels = None
+            self.total_length = 0
+            self.current_position = 0
+            self.paused_position = 0
+            # ==============================
 
-        # 创建新的 OutputStream
-        self.stream = sd.OutputStream(
-            samplerate=self.sample_rate,
-            channels=self.channels,
-            dtype=np.float32,
-            blocksize=int(self.sample_rate * 0.05),
-            callback=self.audio_callback
-        )
+            current_file = self.music_files[self.current_index]
+            self.current_song_name = os.path.basename(current_file)
 
-        # 启动新线程
-        self.playback_thread = threading.Thread(
-            target=self.feed_audio_thread,
-            args=(0,),
-            daemon=True
-        )
-        self.playback_thread.start()
+            self.audio_data = self.load_wav_file(current_file)
+            if self.audio_data is None:
+                return
 
-        self.stream.start()
-        self.is_playing = True
-        self._sync_to_shared()
+            # 创建新事件对象（避免复用旧事件）
+            self.stop_event = threading.Event()
+            self.pause_event = threading.Event()
+            self.is_paused = False
+            self.audio_queue = queue.Queue(maxsize=10)
 
-    except Exception as e:
-        print(f"后台播放失败: {str(e)}")
-        self.is_playing = False
-        self.is_paused = False
+            # 创建新的 OutputStream
+            self.stream = sd.OutputStream(
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype=np.float32,
+                blocksize=int(self.sample_rate * 0.05),
+                callback=self.audio_callback,
+            )
+
+            # 启动新线程
+            self.playback_thread = threading.Thread(
+                target=self.feed_audio_thread, args=(0,), daemon=True
+            )
+            self.playback_thread.start()
+
+            self.stream.start()
+            self.is_playing = True
+            self._sync_to_shared()
+
+        except Exception as e:
+            print(f"后台播放失败: {str(e)}")
+            self.is_playing = False
+            self.is_paused = False
 
     def toggle_play_pause(self):
         """切换播放/暂停"""
@@ -884,12 +951,11 @@ def play_current_track_background(self):
                     channels=self.channels,
                     dtype=np.float32,
                     blocksize=int(self.sample_rate * 0.05),
-                    callback=self.audio_callback
+                    callback=self.audio_callback,
                 )
 
                 self.playback_thread = threading.Thread(
-                    target=self.feed_audio_thread,
-                    args=(target_sample,)
+                    target=self.feed_audio_thread, args=(target_sample,)
                 )
                 self.playback_thread.daemon = True
                 self.playback_thread.start()
@@ -915,7 +981,11 @@ def play_current_track_background(self):
     def update_progress(self):
         """更新进度条"""
         try:
-            position_ms = int(self.current_position * 1000 / self.sample_rate) if self.sample_rate else 0
+            position_ms = (
+                int(self.current_position * 1000 / self.sample_rate)
+                if self.sample_rate
+                else 0
+            )
 
             if (self.is_playing or self.is_paused) and self._is_gui_alive():
                 if self.total_length > 0:
@@ -933,7 +1003,9 @@ def play_current_track_background(self):
                             total_sec = self.total_length // 1000
                             current_time = f"{current_sec // 60}:{current_sec % 60:02d}"
                             total_time = f"{total_sec // 60}:{total_sec % 60:02d}"
-                            self.time_label.config(text=f"{current_time} / {total_time}")
+                            self.time_label.config(
+                                text=f"{current_time} / {total_time}"
+                            )
                         except tk.TclError:
                             pass
 
