@@ -36,6 +36,10 @@ def main():
             self.follow_mouse = False
             self.click_through = True
             self.display_priority = 1
+            # 加载语音配置
+            config = load_config()
+            self.voice_enabled = config.get("voice_enabled", True)
+            self.voice_volume = config.get("voice_volume", 100)
             self._create_instances(count)
 
         def _create_instances(self, count):
@@ -85,6 +89,10 @@ def main():
             pet.set_display_priority(self.display_priority, persist=False)
             if not self._visible:
                 pet.root.withdraw()
+            # 应用语音设置
+            if pet.voice_player:
+                pet.voice_player.set_enabled(self.voice_enabled)
+                pet.voice_player.set_volume(self.voice_volume)
 
         def set_click_through(self, enable):
             self.click_through = enable
@@ -118,6 +126,20 @@ def main():
         def set_wander_idle_stay_mode(self, mode):
             for pet in self.pets:
                 pet.set_wander_idle_stay_mode(mode)
+
+        def set_voice_enabled(self, enabled):
+            """设置所有宠物的语音开关"""
+            self.voice_enabled = enabled
+            for pet in self.pets:
+                if pet.voice_player:
+                    pet.voice_player.set_enabled(enabled)
+
+        def set_voice_volume(self, volume):
+            """设置所有宠物的语音音量"""
+            self.voice_volume = volume
+            for pet in self.pets:
+                if pet.voice_player:
+                    pet.voice_player.set_volume(volume)
 
         def hide_all(self):
             self._visible = False

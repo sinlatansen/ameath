@@ -12,6 +12,8 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
     EDGE_ESCAPE_CHANCE,
     FOLLOW_DISTANCE,
     FOLLOW_START_DIST,
@@ -80,6 +82,13 @@ class DesktopGif:
         # 初始化语音播放器
         try:
             self.voice_player = VoicePlayer()
+            # 加载语音配置
+            voice_config = load_config()
+            voice_enabled = voice_config.get("voice_enabled", DEFAULT_VOICE_ENABLED)
+            voice_volume = voice_config.get("voice_volume", DEFAULT_VOICE_VOLUME)
+            if self.voice_player:
+                self.voice_player.set_enabled(voice_enabled)
+                self.voice_player.set_volume(voice_volume)
         except Exception:
             self.voice_player = None
 
@@ -475,7 +484,7 @@ class DesktopGif:
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
 
-        # 播放随机语音
+        # 播放随机语音（如果启用）
         if self.voice_player:
             self.voice_player.play_random_voice()
 

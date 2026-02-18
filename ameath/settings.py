@@ -19,6 +19,8 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
 )
 from .utils import resource_path, check_update, download_and_update, get_git_hash
 
@@ -313,6 +315,8 @@ class SettingsWindow:
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
         current_instance_count = config.get("instance_count", 1)
+        current_voice_enabled = config.get("voice_enabled", DEFAULT_VOICE_ENABLED)
+        current_voice_volume = config.get("voice_volume", DEFAULT_VOICE_VOLUME)
 
         # ===== 缩放设置 =====
         scale_frame = tk.LabelFrame(
@@ -428,6 +432,87 @@ class SettingsWindow:
         tk.Label(
             startup_frame,
             text="开启后，系统启动时将自动运行桌面宠物",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=22)
+
+        # ===== 语音设置 =====
+        voice_frame = tk.LabelFrame(
+            inner_frame,
+            text="语音设置",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        voice_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        # 语音开关
+        self.voice_enabled_var = tk.BooleanVar(value=current_voice_enabled)
+        voice_enabled_cb = tk.Checkbutton(
+            voice_frame,
+            text="启用点击音效",
+            variable=self.voice_enabled_var,
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_voice_enabled_changed,
+            anchor=tk.W,
+        )
+        voice_enabled_cb.pack(anchor=tk.W, pady=3)
+
+        # 音量滑块
+        volume_row = tk.Frame(voice_frame, bg=self.colors["card_bg"])
+        volume_row.pack(fill=tk.X, pady=(8, 3), padx=22)
+
+        tk.Label(
+            volume_row,
+            text="音量: ",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+        ).pack(side=tk.LEFT)
+
+        self.voice_volume_var = tk.IntVar(value=current_voice_volume)
+        self.voice_volume_scale = tk.Scale(
+            volume_row,
+            from_=0,
+            to=150,
+            orient=tk.HORIZONTAL,
+            variable=self.voice_volume_var,
+            length=200,
+            font=self.fonts["small"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            troughcolor=self.colors["tab_bg"],
+            activebackground=self.colors["accent"],
+            command=self._on_voice_volume_changed,
+        )
+        self.voice_volume_scale.pack(side=tk.LEFT, padx=(5, 10))
+
+        self.voice_volume_label = tk.Label(
+            volume_row,
+            text=f"{current_voice_volume}%",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            width=5,
+        )
+        self.voice_volume_label.pack(side=tk.LEFT)
+
+        # 说明文字
+        tk.Label(
+            voice_frame,
+            text="拖动桌宠时播放随机音效，音量可随时调整",
             font=self.fonts["small"],
             fg=self.colors["subtext"],
             bg=self.colors["card_bg"],
@@ -1054,6 +1139,27 @@ class SettingsWindow:
         config = load_config()
         config["auto_startup"] = enabled
         save_config(config)
+
+    def _on_voice_enabled_changed(self):
+        """语音开关改变回调"""
+        enabled = self.voice_enabled_var.get()
+        config = load_config()
+        config["voice_enabled"] = enabled
+        save_config(config)
+        # 通知应用更新语音设置
+        if hasattr(self.app, "set_voice_enabled"):
+            self.app.set_voice_enabled(enabled)
+
+    def _on_voice_volume_changed(self, value):
+        """语音音量改变回调"""
+        volume = int(float(value))
+        self.voice_volume_label.config(text=f"{volume}%")
+        config = load_config()
+        config["voice_volume"] = volume
+        save_config(config)
+        # 通知应用更新语音音量
+        if hasattr(self.app, "set_voice_volume"):
+            self.app.set_voice_volume(volume)
 
     def _on_display_mode_changed(self):
         """显示模式改变回调（固定屏幕/跨屏游荡）"""
