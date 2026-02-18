@@ -30,8 +30,6 @@ def main():
     from ameath.fonts import _load_zpix_font
 
     _load_zpix_font()
-    # 立即隐藏窗口，避免闪烁
-    root.withdraw()
 
     class PetManager:
         def __init__(self, master, count):

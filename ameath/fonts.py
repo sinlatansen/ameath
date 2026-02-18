@@ -8,6 +8,7 @@ def _load_zpix_font():
     """从文件加载 Zpix 字体（Windows）"""
     try:
         import ctypes
+        import os
 
         project_dir = Path(__file__).parent.parent
         font_path = project_dir / "fonts" / "zpix.ttf"
@@ -17,11 +18,17 @@ def _load_zpix_font():
 
         gdi32 = ctypes.windll.gdi32
         FR_PRIVATE = 0x10
-        result = gdi32.AddFontResourceExW(str(font_path.absolute()), FR_PRIVATE, 0)
+
+        # 使用绝对路径
+        abs_path = os.path.abspath(str(font_path))
+        result = gdi32.AddFontResourceExW(abs_path, FR_PRIVATE, 0)
 
         if result > 0:
             # 发送 WM_FONTCHANGE 消息通知系统字体已更改
-            ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+            # 使用 PostMessage 代替 SendMessage 避免阻塞主线程
+            HWND_BROADCAST = 0xFFFF
+            WM_FONTCHANGE = 0x001D
+            ctypes.windll.user32.PostMessageW(HWND_BROADCAST, WM_FONTCHANGE, 0, 0)
             return True
 
     except Exception:
