@@ -3,6 +3,7 @@ from ctypes import wintypes
 import os
 import random
 import tkinter as tk
+from tkinter import Menu
 from typing import Any
 from screeninfo import get_monitors
 
@@ -62,6 +63,7 @@ from .constants import (
 )
 from .utils import flip_frames, load_gif_frames, resource_path
 from .voice import VoicePlayer
+from .music_player import MusicPlayer
 
 
 class DesktopGif:
@@ -239,6 +241,57 @@ class DesktopGif:
 
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
+
+        # 音乐播放器引用
+        self.music_player_window = None
+
+        # 绑定右键事件
+        self.label.bind("<Button-3>", self.handle_right_click)
+
+    def handle_right_click(self, event):
+        """处理右键点击事件"""
+        config = load_config()
+        music_enabled = config.get("music_enabled", False)
+
+        if music_enabled:
+            self.open_music_player()
+
+    def open_music_player(self):
+        """打开音乐播放器"""
+        if (
+            self.music_player_window is not None
+            and self.music_player_window.winfo_exists()
+        ):
+            self.music_player_window.lift()
+            return
+
+        self.music_player_window = tk.Toplevel(self.root)
+        self.music_player_window.protocol(
+            "WM_DELETE_WINDOW", self.on_music_player_close
+        )
+
+        try:
+            from .music_player import MusicPlayer
+
+            MusicPlayer(
+                self.music_player_window, self.on_music_player_position_unlocked
+            )
+        except ImportError as e:
+            print(f"无法导入音乐播放器: {e}")
+            import tkinter.messagebox as messagebox
+
+            messagebox.showerror("错误", "音乐播放器模块加载失败")
+            self.music_player_window.destroy()
+
+    def on_music_player_close(self):
+        """音乐播放器关闭时的回调"""
+        if self.music_player_window:
+            self.music_player_window.destroy()
+            self.music_player_window = None
+
+    def on_music_player_position_unlocked(self):
+        """音乐播放器位置解锁回调"""
+        pass
 
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""

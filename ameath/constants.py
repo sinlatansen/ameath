@@ -82,3 +82,7 @@ STAY_PUT_CHANCE = 0.3  # 停下时原地不动的概率
 # 语音设置
 DEFAULT_VOICE_ENABLED = True  # 默认开启语音
 DEFAULT_VOICE_VOLUME = 100  # 默认语音音量 0-150
+
+# 音乐播放器配置
+DEFAULT_MUSIC_ENABLED = False
+DEFAULT_MUSIC_VOLUME = 100

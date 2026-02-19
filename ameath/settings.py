@@ -519,6 +519,87 @@ class SettingsWindow:
             anchor=tk.W,
         ).pack(anchor=tk.W, padx=22)
 
+        # ===== 音乐播放器设置 =====
+        music_frame = tk.LabelFrame(
+            inner_frame,
+            text="音乐播放器",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        music_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        # 音乐播放器开关
+        self.music_enabled_var = tk.BooleanVar(value=config.get("music_enabled", False))
+        music_enabled_cb = tk.Checkbutton(
+            music_frame,
+            text="启用右键音乐播放器",
+            variable=self.music_enabled_var,
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            activebackground=self.colors["card_bg"],
+            activeforeground=self.colors["accent_dark"],
+            selectcolor=self.colors["bg"],
+            command=self._on_music_enabled_changed,
+            anchor=tk.W,
+        )
+        music_enabled_cb.pack(anchor=tk.W, pady=3)
+
+        # 音乐音量滑块
+        music_volume_row = tk.Frame(music_frame, bg=self.colors["card_bg"])
+        music_volume_row.pack(fill=tk.X, pady=(8, 3), padx=22)
+
+        tk.Label(
+            music_volume_row,
+            text="音乐音量: ",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+        ).pack(side=tk.LEFT)
+
+        self.music_volume_var = tk.IntVar(value=config.get("music_volume", 100))
+        self.music_volume_scale = tk.Scale(
+            music_volume_row,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.music_volume_var,
+            length=200,
+            font=self.fonts["small"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+            highlightthickness=0,
+            troughcolor=self.colors["tab_bg"],
+            activebackground=self.colors["accent"],
+            command=self._on_music_volume_changed,
+        )
+        self.music_volume_scale.pack(side=tk.LEFT, padx=(5, 10))
+
+        self.music_volume_label = tk.Label(
+            music_volume_row,
+            text=f"{config.get('music_volume', 100)}%",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            width=5,
+        )
+        self.music_volume_label.pack(side=tk.LEFT)
+
+        # 说明文字
+        tk.Label(
+            music_frame,
+            text="右键点击桌宠打开音乐播放器",
+            font=self.fonts["small"],
+            fg=self.colors["subtext"],
+            bg=self.colors["card_bg"],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, padx=22)
+
         # ===== 屏幕设置 =====
         screen_frame = tk.LabelFrame(
             inner_frame,
@@ -1160,6 +1241,21 @@ class SettingsWindow:
         # 通知应用更新语音音量
         if hasattr(self.app, "set_voice_volume"):
             self.app.set_voice_volume(volume)
+
+    def _on_music_enabled_changed(self):
+        """音乐播放器开关改变回调"""
+        enabled = self.music_enabled_var.get()
+        config = load_config()
+        config["music_enabled"] = enabled
+        save_config(config)
+
+    def _on_music_volume_changed(self, value):
+        """音乐音量改变回调"""
+        volume = int(float(value))
+        self.music_volume_label.config(text=f"{volume}%")
+        config = load_config()
+        config["music_volume"] = volume
+        save_config(config)
 
     def _on_display_mode_changed(self):
         """显示模式改变回调（固定屏幕/跨屏游荡）"""
