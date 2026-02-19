@@ -40,7 +40,7 @@ class MusicPlayer:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, parent=None, position_unlock_callback=None):
+    def __init__(self, parent=None, position_unlock_callback=None, colors=None):
         # 如果是重复初始化（parent为None表示只更新状态）
         if parent is None:
             return
@@ -87,12 +87,29 @@ class MusicPlayer:
         self.volume_scale = None
         self.volume_var = None
 
-        # 主题颜色
-        self.pink_light = "#FFD1DC"
-        self.blue_sky = "#E6F3FF"
-        self.white = "#FFFFFF"
-        self.text_dark = "#333333"
-        self.text_light = "#666666"
+        # 主题颜色（支持外部传入）
+        if colors:
+            # 使用外部传入的颜色（设置窗口风格）
+            self.pink_light = colors.get("bg", "#FFF1F6")
+            self.blue_sky = colors.get("card_bg", "#FFFFFF")
+            self.white = colors.get("card_bg", "#FFFFFF")
+            self.text_dark = colors.get("text", "#4A2A3A")
+            self.text_light = colors.get("subtext", "#7A5564")
+            self.accent_color = colors.get("accent", "#FF69B4")
+            self.accent_dark = colors.get("accent_dark", "#E84D8E")
+            self.border_color = colors.get("border", "#F3C2D4")
+            self.tab_bg = colors.get("tab_bg", "#FFE1EE")
+        else:
+            # 默认颜色（独立窗口风格）
+            self.pink_light = "#FFD1DC"
+            self.blue_sky = "#E6F3FF"
+            self.white = "#FFFFFF"
+            self.text_dark = "#333333"
+            self.text_light = "#666666"
+            self.accent_color = "#FF69B4"
+            self.accent_dark = "#E84D8E"
+            self.border_color = "#F3C2D4"
+            self.tab_bg = "#FFE1EE"
 
         # 加载配置
         config = load_config()
@@ -180,27 +197,39 @@ class MusicPlayer:
 
     def create_gui(self):
         """创建GUI"""
-        self.parent.title("音乐播放器")
-        self.parent.geometry("600x1000")
-        self.parent.resizable(True, True)
-        self.parent.configure(bg=self.pink_light)
+        # 检查 parent 是否是窗口（独立窗口）还是 Frame（嵌入标签页）
+        is_window = hasattr(self.parent, "title") and callable(
+            getattr(self.parent, "title")
+        )
 
-        # 设置窗口图标
-        try:
-            icon_path = resource_path("gifs/ameath.ico")
-            if os.path.exists(icon_path):
-                self.parent.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"设置窗口图标失败: {e}")
+        if is_window:
+            # 独立窗口模式
+            self.parent.title("音乐播放器")
+            self.parent.geometry("600x1000")
+            self.parent.resizable(True, True)
+            self.parent.configure(bg=self.pink_light)
 
-        screen_w = self.parent.winfo_screenwidth()
-        screen_h = self.parent.winfo_screenheight()
-        x = (screen_w - 600) // 2
-        y = (screen_h - 1000) // 2
-        self.parent.geometry(f"600x1000+{x}+{y}")
+            # 设置窗口图标
+            try:
+                icon_path = resource_path("gifs/ameath.ico")
+                if os.path.exists(icon_path):
+                    self.parent.iconbitmap(icon_path)
+            except Exception as e:
+                print(f"设置窗口图标失败: {e}")
 
-        main_frame = tk.Frame(self.parent, bg=self.blue_sky, padx=20, pady=15)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            screen_w = self.parent.winfo_screenwidth()
+            screen_h = self.parent.winfo_screenheight()
+            x = (screen_w - 600) // 2
+            y = (screen_h - 1000) // 2
+            self.parent.geometry(f"600x1000+{x}+{y}")
+
+            # 独立窗口使用 blue_sky 背景
+            main_frame = tk.Frame(self.parent, bg=self.blue_sky, padx=20, pady=15)
+            main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        else:
+            # 嵌入标签页模式，直接使用传入的 Frame
+            main_frame = tk.Frame(self.parent, bg=self.pink_light, padx=20, pady=15)
+            main_frame.pack(fill=tk.BOTH, expand=True)
 
         list_frame = tk.Frame(main_frame, bg=self.blue_sky)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
