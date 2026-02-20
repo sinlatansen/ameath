@@ -16,7 +16,7 @@ from .constants import (
 
 
 DEFAULT_CONFIG = {
-    "total_screen": False,
+    "total_screen": True,
     "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
     "skip_version": None,
     "voice_enabled": DEFAULT_VOICE_ENABLED,
     "voice_volume": DEFAULT_VOICE_VOLUME,
-    "music_enabled": False,
+    "music_enabled": True,
     "music_volume": 100,
 }
 

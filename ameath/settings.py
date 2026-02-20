@@ -1270,6 +1270,18 @@ class SettingsWindow:
         config["music_enabled"] = enabled
         save_config(config)
 
+        # 同步更新音乐标签页的 UI 状态
+        if hasattr(self, "music_player_embedded") and self.music_player_embedded:
+            self.music_player_embedded.music_enabled = enabled
+            # 更新按钮状态
+            state = tk.NORMAL if enabled else tk.DISABLED
+            self.music_player_embedded.prev_btn.config(state=state)
+            self.music_player_embedded.play_btn.config(state=state)
+            self.music_player_embedded.next_btn.config(state=state)
+            self.music_player_embedded.progress_bar.config(state=state)
+            for btn in self.music_player_embedded.action_buttons:
+                btn.config(state=state)
+
     def _on_music_volume_changed(self, value):
         """音乐音量改变回调"""
         volume = int(float(value))
