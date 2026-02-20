@@ -1714,6 +1714,7 @@ class MusicPlayerEmbedded:
             to=100,
             orient=tk.HORIZONTAL,
             variable=self.progress_var,
+            command=self._on_progress_change,
             length=300,
             font=self.fonts["small"],
             bg=self.colors["card_bg"],
@@ -1840,7 +1841,7 @@ class MusicPlayerEmbedded:
 
         if os.path.exists(music_dir):
             for file in sorted(os.listdir(music_dir)):
-                if file.lower().endswith(".wav"):
+                if file.lower().endswith((".wav", ".mp3")):
                     self.music_files.append(os.path.join(music_dir, file))
 
         # 同步到核心播放器
@@ -1860,6 +1861,14 @@ class MusicPlayerEmbedded:
         if self.current_index >= 0 and self.current_index < len(self.music_files):
             self.listbox.selection_set(self.current_index)
             self.listbox.see(self.current_index)
+
+    def _on_progress_change(self, value):
+        """进度条拖动"""
+        if not self.music_files or self.current_index < 0:
+            return
+
+        # 调用核心播放器的进度跳转
+        self.core_player.on_progress_change(value)
 
     def _on_volume_change(self, value):
         """音量改变"""
@@ -2008,7 +2017,12 @@ class MusicPlayerEmbedded:
 
         files = filedialog.askopenfilenames(
             title="选择音乐文件",
-            filetypes=[("WAV files", "*.wav"), ("All files", "*.*")],
+            filetypes=[
+                ("音频文件", "*.wav *.mp3"),
+                ("WAV文件", "*.wav"),
+                ("MP3文件", "*.mp3"),
+                ("所有文件", "*.*"),
+            ],
         )
 
         if files:

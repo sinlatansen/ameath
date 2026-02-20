@@ -189,7 +189,7 @@ class MusicPlayer:
             music_path = resource_path(MUSIC_DIR)
             if os.path.exists(music_path):
                 for file in os.listdir(music_path):
-                    if file.lower().endswith(".wav"):
+                    if file.lower().endswith((".wav", ".mp3")):
                         self.music_files.append(os.path.join(music_path, file))
         except Exception as e:
             print(f"读取失败: {e}")
@@ -484,7 +484,12 @@ class MusicPlayer:
         """导入音乐文件"""
         files = filedialog.askopenfilenames(
             title="选择音乐文件",
-            filetypes=[("WAV音频文件", "*.wav"), ("所有文件", "*.*")],
+            filetypes=[
+                ("音频文件", "*.wav *.mp3"),
+                ("WAV文件", "*.wav"),
+                ("MP3文件", "*.mp3"),
+                ("所有文件", "*.*"),
+            ],
         )
 
         if not files:
@@ -496,7 +501,7 @@ class MusicPlayer:
 
         imported_count = 0
         for file in files:
-            if file.lower().endswith(".wav"):
+            if file.lower().endswith((".wav", ".mp3")):
                 filename = os.path.basename(file)
                 dest_path = os.path.join(music_path, filename)
 
@@ -533,39 +538,22 @@ class MusicPlayer:
                 self.play_current_track()
 
     def load_wav_file(self, filepath):
-        """加载 WAV 文件为 numpy array"""
+        """加载音频文件（WAV/MP3）为 numpy array"""
         try:
-            with wave.open(filepath, "rb") as wav_file:
-                self.channels = wav_file.getnchannels()
-                self.sample_rate = wav_file.getframerate()
-                sample_width = wav_file.getsampwidth()
-                frames = wav_file.getnframes()
+            # 使用 soundfile 支持多种格式（WAV, MP3, OGG 等）
+            import soundfile as sf
 
-                raw_data = wav_file.readframes(frames)
+            data, samplerate = sf.read(filepath, dtype=np.float32)
+            self.sample_rate = samplerate
+            self.channels = 1 if len(data.shape) == 1 else data.shape[1]
 
-                if sample_width == 1:
-                    dtype = np.uint8
-                    data = np.frombuffer(raw_data, dtype=dtype)
-                    data = data.astype(np.float32) / 128.0 - 1.0
-                elif sample_width == 2:
-                    dtype = np.int16
-                    data = np.frombuffer(raw_data, dtype=dtype)
-                    data = data.astype(np.float32) / 32768.0
-                elif sample_width == 4:
-                    dtype = np.int32
-                    data = np.frombuffer(raw_data, dtype=dtype)
-                    data = data.astype(np.float32) / 2147483648.0
-                else:
-                    raise ValueError(f"不支持的位深: {sample_width}")
+            # 计算总时长（毫秒）
+            self.total_length = int(len(data) * 1000 / self.sample_rate)
 
-                if self.channels > 1:
-                    data = data.reshape((-1, self.channels))
-
-                self.total_length = int(frames * 1000 / self.sample_rate)
-                return data
+            return data
 
         except Exception as e:
-            print(f"加载WAV文件失败: {e}")
+            print(f"加载音频文件失败: {e}")
             return None
 
     def safe_stop_playback(self):
