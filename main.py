@@ -33,11 +33,11 @@ def main():
             self._visible = True
             self._request_quit = False
             self.is_paused = False
-            self.follow_mouse = False
-            self.click_through = True
-            self.display_priority = 1
-            # 加载语音配置
+            # 从配置文件读取所有设置
             config = load_config()
+            self.follow_mouse = config.get("follow_mouse", False)
+            self.click_through = config.get("click_through", False)
+            self.display_priority = config.get("display_priority", 1)
             self.voice_enabled = config.get("voice_enabled", True)
             self.voice_volume = config.get("voice_volume", 100)
             self._create_instances(count)
