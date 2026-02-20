@@ -30,6 +30,8 @@ DEFAULT_CONFIG = {
     "skip_version": None,
     "voice_enabled": DEFAULT_VOICE_ENABLED,
     "voice_volume": DEFAULT_VOICE_VOLUME,
+    "music_enabled": True,
+    "music_volume": 100,
 }
 
 
@@ -115,6 +117,15 @@ def _sanitize_config(config):
         DEFAULT_CONFIG["voice_volume"],
         min_value=0,
         max_value=150,
+    )
+    result["music_enabled"] = _coerce_bool(
+        config.get("music_enabled"), DEFAULT_CONFIG["music_enabled"]
+    )
+    result["music_volume"] = _coerce_int(
+        config.get("music_volume"),
+        DEFAULT_CONFIG["music_volume"],
+        min_value=0,
+        max_value=100,
     )
     return result
 

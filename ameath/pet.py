@@ -241,6 +241,26 @@ class DesktopGif:
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
 
+        # 绑定右键事件
+        self.label.bind("<Button-3>", self.handle_right_click)
+
+    def handle_right_click(self, event):
+        """处理右键点击事件 - 打开设置窗口音乐标签页"""
+        config = load_config()
+        music_enabled = config.get("music_enabled", False)
+
+        if music_enabled:
+            # 打开设置窗口并切换到音乐标签页
+            from .settings import show_settings_dialog
+            from .utils import get_version
+
+            # 使用 manager（PetManager）而不是 app（Icon）
+            manager = getattr(self, "manager", None)
+            if manager:
+                show_settings_dialog(
+                    self.root, manager, get_version(), open_music_tab=True
+                )
+
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""
         try:

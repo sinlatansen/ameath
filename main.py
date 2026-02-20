@@ -38,11 +38,11 @@ def main():
             self._visible = True
             self._request_quit = False
             self.is_paused = False
-            self.follow_mouse = False
-            self.click_through = True
-            self.display_priority = 1
-            # 加载语音配置
+            # 从配置文件读取所有设置
             config = load_config()
+            self.follow_mouse = config.get("follow_mouse", False)
+            self.click_through = config.get("click_through", False)
+            self.display_priority = config.get("display_priority", 1)
             self.voice_enabled = config.get("voice_enabled", True)
             self.voice_volume = config.get("voice_volume", 100)
             self._create_instances(count)
@@ -52,6 +52,7 @@ def main():
                 pet_root = self.root if not self.pets else tk.Toplevel(self.root)
                 pet = DesktopGif(pet_root)
                 self.pets.append(pet)
+                self._apply_state_to_pet(pet)
             self._sync_state_from_primary()
 
         def _sync_state_from_primary(self):
@@ -98,6 +99,8 @@ def main():
             if pet.voice_player:
                 pet.voice_player.set_enabled(self.voice_enabled)
                 pet.voice_player.set_volume(self.voice_volume)
+            # 设置管理器引用
+            pet.manager = self
 
         def set_click_through(self, enable):
             self.click_through = enable
