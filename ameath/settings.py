@@ -1637,7 +1637,6 @@ class MusicPlayerEmbedded:
             relief=tk.SUNKEN,
             highlightthickness=0,
             activestyle="none",
-            height=5,
             width=45,
         )
         self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
