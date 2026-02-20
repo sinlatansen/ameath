@@ -10,6 +10,7 @@ import threading
 from PIL import Image, ImageTk
 
 from .config import load_config, save_config, set_auto_startup
+from .fonts import get_font_config
 from .constants import (
     SCREEN_INDEX,
     SCALE_OPTIONS,
@@ -54,12 +55,14 @@ class SettingsWindow:
             "tab_bg": "#FFE1EE",
             "tab_active": "#FFD1E5",
         }
+        font_config = get_font_config()
+        self.font_family = font_config["family"]
         self.fonts = {
-            "title": ("Microsoft YaHei UI", 12, "bold"),
-            "subtitle": ("Microsoft YaHei UI", 11, "bold"),
-            "base": ("Microsoft YaHei UI", 10),
-            "small": ("Microsoft YaHei UI", 9),
-            "control": ("Microsoft YaHei UI", 11),
+            "title": font_config["title"],
+            "subtitle": font_config["subtitle"],
+            "base": font_config["base"],
+            "small": font_config["small"],
+            "control": font_config["control"],
         }
 
     def _configure_theme(self):
@@ -94,7 +97,21 @@ class SettingsWindow:
 
     def _create_window(self):
         """创建设置窗口（内部方法）"""
+        # 临时显示父窗口以确保 Toplevel 能正常创建
+        parent_was_hidden = False
+        try:
+            parent_was_hidden = not self.parent.winfo_viewable()
+        except Exception:
+            pass
+
+        if parent_was_hidden:
+            self.parent.deiconify()
+
         self.window = tk.Toplevel(self.parent)
+
+        # 父窗口可以再次隐藏（设置窗口已独立，不受影响）
+        if parent_was_hidden:
+            self.parent.withdraw()
         self.window.title("设置")
         # 窗口尺寸: 1000x1000（自适应屏幕）
         self.window.update_idletasks()
@@ -106,7 +123,8 @@ class SettingsWindow:
         self.window.minsize(min(900, window_w), min(900, window_h))
         self.window.resizable(True, True)
         self.window.attributes("-topmost", True)
-        self.window.transient(self.parent)
+        # 注意：不使用 transient，否则父窗口隐藏时设置窗口也会消失
+        # self.window.transient(self.parent)
         self.window.configure(bg=self.colors["bg"])
         self._configure_theme()
 
@@ -1118,7 +1136,7 @@ class SettingsWindow:
         tk.Label(
             frame,
             text="飞吧，朝向春天",
-            font=("Microsoft YaHei UI", 20, "bold"),
+            font=(self.font_family, 20, "bold"),
             fg=self.colors["accent_dark"],
             bg=self.colors["bg"],
         ).pack(pady=(0, 10))

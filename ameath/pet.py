@@ -72,6 +72,7 @@ class DesktopGif:
         self._request_quit = False  # 退出标志（主线程统一收尾）
         self.display_priority = 1
         self._hidden_by_fullscreen = False
+        self._user_hidden = False  # 用户手动隐藏标志
 
         # 立即设置无边框，避免闪烁
         root.overrideredirect(True)
@@ -263,7 +264,10 @@ class DesktopGif:
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""
         try:
-            if self.display_priority == 1:
+            # 如果用户手动隐藏，不自动恢复显示
+            if self._user_hidden:
+                pass
+            elif self.display_priority == 1:
                 self._apply_topmost()
             elif self.display_priority == 2:
                 self._apply_fullscreen_hide()
@@ -394,6 +398,9 @@ class DesktopGif:
             config["display_priority"] = mode
             save_config(config)
         try:
+            # 如果用户手动隐藏，不改变窗口可见性
+            if self._user_hidden:
+                return
             if self.display_priority == 1:
                 self._apply_topmost()
             elif self.display_priority == 2:

@@ -365,7 +365,12 @@ def load_gif_frames(gif_path, scale=1.0):
             if new_w <= 0 or new_h <= 0:
                 new_w = max(1, new_w)
                 new_h = max(1, new_h)
-            resized = frame.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            # 根据缩放比例选择插值算法：放大用LANCZOS(平滑)，缩小用BOX(清晰)
+            if scale < 1.0:
+                resample = Image.Resampling.BOX
+            else:
+                resample = Image.Resampling.LANCZOS
+            resized = frame.resize((new_w, new_h), resample)
             photoimage_frames.append(ImageTk.PhotoImage(resized))
             pil_frames.append(resized)
             delays.append(gif.info.get("duration", 80))
@@ -374,8 +379,8 @@ def load_gif_frames(gif_path, scale=1.0):
     # 确保至少有一帧
     if not photoimage_frames and frame is not None:
         photoimage_frames.append(
-            ImageTk.PhotoImage(frame.resize((100, 100), Image.Resampling.LANCZOS))
+            ImageTk.PhotoImage(frame.resize((100, 100), Image.Resampling.BOX))
         )
-        pil_frames.append(frame.resize((100, 100), Image.Resampling.LANCZOS))
+        pil_frames.append(frame.resize((100, 100), Image.Resampling.BOX))
         delays.append(80)
     return photoimage_frames, delays, pil_frames

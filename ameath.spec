@@ -29,7 +29,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('gifs', 'gifs'), ('sound', 'sound'), ('version.txt', '.'), ('git_hash.txt', '.')],
+    datas=[('gifs', 'gifs'), ('sound', 'sound'), ('fonts', 'fonts'), ('version.txt', '.'), ('git_hash.txt', '.')],
     hiddenimports=[
         'PIL._tkinter',
         'ameath',
