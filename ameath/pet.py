@@ -253,9 +253,12 @@ class DesktopGif:
             from .settings import show_settings_dialog
             from .utils import get_version
 
-            show_settings_dialog(
-                self.root, self.app, get_version(), open_music_tab=True
-            )
+            # 使用 manager（PetManager）而不是 app（Icon）
+            manager = getattr(self, "manager", None)
+            if manager:
+                show_settings_dialog(
+                    self.root, manager, get_version(), open_music_tab=True
+                )
 
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""

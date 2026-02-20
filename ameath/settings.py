@@ -103,7 +103,7 @@ class SettingsWindow:
         window_w = min(1000, max(600, screen_w - 80))
         window_h = min(1000, max(600, screen_h - 80))
         self.window.geometry(f"{window_w}x{window_h}")
-        self.window.minsize(min(900, window_w), min(800, window_h))
+        self.window.minsize(min(900, window_w), min(900, window_h))
         self.window.resizable(True, True)
         self.window.attributes("-topmost", True)
         self.window.transient(self.parent)
@@ -1533,19 +1533,17 @@ class SettingsWindow:
             )
 
     def _create_music_tab(self, parent):
-        """创建音乐播放器标签页"""
-        from .music_player import MusicPlayer
-
+        """创建音乐播放器标签页 - 歌姬偶像风格"""
         frame = tk.Frame(parent, bg=self.colors["bg"])
 
-        # 创建音乐播放器（传入设置窗口的颜色配置）
-        self.music_player = MusicPlayer(frame, None, colors=self.colors)
+        # 创建内嵌音乐播放器（使用统一风格）
+        self.music_player_embedded = MusicPlayerEmbedded(frame, self.colors, self.fonts)
 
         return frame
 
 
 class MusicPlayerEmbedded:
-    """内嵌音乐播放器 - 适配设置窗口风格"""
+    """内嵌音乐播放器 - 歌姬偶像风格"""
 
     def __init__(self, parent, colors, fonts):
         self.parent = parent
@@ -1553,83 +1551,68 @@ class MusicPlayerEmbedded:
         self.fonts = fonts
         self.config = load_config()
 
-        # 音乐播放器状态
-        self.music_files = []
-        self.current_index = -1
-        self.is_playing = False
-        self.is_paused = False
-        self.current_position = 0
-        self.total_length = 0
+        # 创建实际的播放器核心（使用 MusicPlayer 的音频功能）
+        from .music_player import MusicPlayer
+
+        # 创建一个隐藏的 Frame 作为 parent，确保 MusicPlayer 正常初始化
+        import tkinter as tk
+
+        dummy_frame = tk.Frame(parent)
+        self.core_player = MusicPlayer(
+            parent=dummy_frame, position_unlock_callback=None
+        )
+
+        # 同步音乐文件列表
+        self.music_files = self.core_player.music_files
+        self.current_index = self.core_player.current_index
+        self.is_playing = self.core_player.is_playing
+        self.is_paused = self.core_player.is_paused
 
         # 从配置加载
         self.music_volume = self.config.get("music_volume", 100)
         self.music_enabled = self.config.get("music_enabled", False)
 
+        # 应用音量设置
+        self.core_player.music_volume = self.music_volume
+
         # 创建UI
         self._create_ui()
 
-        # 加载音乐文件
+        # 加载音乐文件并更新列表显示
         self._load_music_files()
 
+        # 启动进度更新循环
+        self._start_progress_loop()
+
     def _create_ui(self):
-        """创建音乐播放器UI"""
-        # 主容器 - 使用卡片风格
-        main_card = tk.Frame(
-            self.parent,
-            bg=self.colors["card_bg"],
-            bd=1,
-            relief=tk.SOLID,
-            highlightbackground=self.colors["border"],
-            highlightthickness=1,
-        )
-        main_card.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        """创建音乐播放器UI - 歌姬偶像风格"""
+        # 主容器
+        main_frame = tk.Frame(self.parent, bg=self.colors["bg"])
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
 
-        # 标题
-        title_frame = tk.Frame(main_card, bg=self.colors["card_bg"])
-        title_frame.pack(fill=tk.X, padx=15, pady=(15, 10))
-
-        tk.Label(
-            title_frame,
-            text="🎵 音乐播放器",
+        # ===== 演出曲目列表 =====
+        playlist_frame = tk.LabelFrame(
+            main_frame,
+            text="🎵 演出曲目",
             font=self.fonts["subtitle"],
-            bg=self.colors["card_bg"],
-            fg=self.colors["accent_dark"],
-        ).pack(side=tk.LEFT)
-
-        # 启用开关
-        self.enabled_var = tk.BooleanVar(value=self.music_enabled)
-        enabled_cb = tk.Checkbutton(
-            title_frame,
-            text="启用音乐播放器",
-            variable=self.enabled_var,
-            command=self._on_enabled_changed,
-            bg=self.colors["card_bg"],
-            fg=self.colors["text"],
-            selectcolor=self.colors["bg"],
-            activebackground=self.colors["card_bg"],
-            font=self.fonts["base"],
-        )
-        enabled_cb.pack(side=tk.RIGHT)
-
-        # 歌曲列表框架
-        list_frame = tk.LabelFrame(
-            main_card,
-            text="播放列表",
-            font=self.fonts["base"],
+            padx=15,
+            pady=12,
             bg=self.colors["card_bg"],
             fg=self.colors["accent_dark"],
             bd=1,
             relief=tk.SOLID,
         )
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 10))
+        playlist_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15), ipady=5)
 
-        # 列表框和滚动条
-        list_container = tk.Frame(list_frame, bg=self.colors["card_bg"])
-        list_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # 列表框容器
+        list_container = tk.Frame(playlist_frame, bg=self.colors["card_bg"])
+        list_container.pack(fill=tk.BOTH, expand=True, pady=5)
 
+        # 滚动条
         scrollbar = tk.Scrollbar(list_container, bg=self.colors["card_bg"])
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # 歌单列表 - 像素风边框，固定显示5首歌高度
         self.listbox = tk.Listbox(
             list_container,
             yscrollcommand=scrollbar.set,
@@ -1638,83 +1621,101 @@ class MusicPlayerEmbedded:
             selectbackground=self.colors["accent"],
             selectforeground="white",
             font=self.fonts["base"],
-            bd=0,
+            bd=2,
+            relief=tk.SUNKEN,
             highlightthickness=0,
             activestyle="none",
+            height=5,
+            width=45,
         )
-        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
         scrollbar.config(command=self.listbox.yview)
 
         self.listbox.bind("<Double-Button-1>", self._on_double_click)
 
-        # 控制按钮框架
-        control_frame = tk.Frame(main_card, bg=self.colors["card_bg"])
-        control_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+        # ===== 演出控制台 =====
+        console_frame = tk.LabelFrame(
+            main_frame,
+            text="🎮 演出控制台",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        console_frame.pack(fill=tk.X, pady=(0, 15), ipady=5)
 
-        # 上一首/播放/暂停/下一首
-        btn_frame = tk.Frame(control_frame, bg=self.colors["card_bg"])
-        btn_frame.pack()
+        # 播放控制按钮 - 偶像风格
+        btn_row = tk.Frame(console_frame, bg=self.colors["card_bg"])
+        btn_row.pack(fill=tk.X, pady=(0, 10))
+
+        # 统一按钮样式
+        # 统一按钮样式 - 演出控制台
+        base_btn = {
+            "bg": self.colors["accent"],
+            "fg": "white",
+            "activebackground": self.colors["accent_dark"],
+            "activeforeground": "white",
+            "font": self.fonts["control"],
+            "relief": tk.FLAT,
+            "bd": 0,
+            "cursor": "hand2",
+            "height": 1,
+        }
 
         self.prev_btn = tk.Button(
-            btn_frame,
-            text="⏮ 上一首",
+            btn_row,
+            text="◀◀ 上一曲",
+            width=10,
             command=self._previous_track,
-            bg=self.colors["accent"],
-            fg="white",
-            activebackground=self.colors["accent_dark"],
-            activeforeground="white",
-            font=self.fonts["control"],
-            relief=tk.FLAT,
-            bd=0,
-            cursor="hand2",
+            **base_btn,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
-        self.prev_btn.pack(side=tk.LEFT, padx=5)
+        self.prev_btn.pack(side=tk.LEFT, padx=(0, 10))
 
         self.play_btn = tk.Button(
-            btn_frame,
-            text="▶ 播放",
+            btn_row,
+            text="▶ 演出开始",
+            width=12,
             command=self._toggle_play,
-            bg=self.colors["accent"],
-            fg="white",
-            activebackground=self.colors["accent_dark"],
-            activeforeground="white",
-            font=self.fonts["control"],
-            relief=tk.FLAT,
-            bd=0,
-            cursor="hand2",
-            width=10,
+            **base_btn,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
         self.play_btn.pack(side=tk.LEFT, padx=5)
 
         self.next_btn = tk.Button(
-            btn_frame,
-            text="下一首 ⏭",
+            btn_row,
+            text="下一曲 ▶▶",
+            width=10,
             command=self._next_track,
-            bg=self.colors["accent"],
-            fg="white",
-            activebackground=self.colors["accent_dark"],
-            activeforeground="white",
-            font=self.fonts["control"],
-            relief=tk.FLAT,
-            bd=0,
-            cursor="hand2",
+            **base_btn,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
-        self.next_btn.pack(side=tk.LEFT, padx=5)
+        self.next_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-        # 进度条框架
-        progress_frame = tk.Frame(main_card, bg=self.colors["card_bg"])
-        progress_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+        # 进度条 - 演出进度
+        progress_row = tk.Frame(console_frame, bg=self.colors["card_bg"])
+        progress_row.pack(fill=tk.X, pady=(10, 5))
+
+        tk.Label(
+            progress_row,
+            text="演出进度: ",
+            font=self.fonts["control"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["text"],
+        ).pack(side=tk.LEFT)
 
         self.progress_var = tk.DoubleVar(value=0)
         self.progress_bar = tk.Scale(
-            progress_frame,
+            progress_row,
             from_=0,
             to=100,
             orient=tk.HORIZONTAL,
             variable=self.progress_var,
+            length=300,
+            font=self.fonts["small"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
             highlightthickness=0,
@@ -1723,104 +1724,110 @@ class MusicPlayerEmbedded:
             sliderrelief=tk.FLAT,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
-        self.progress_bar.pack(fill=tk.X)
+        self.progress_bar.pack(side=tk.LEFT, padx=(5, 10))
 
-        # 时间标签
         self.time_label = tk.Label(
-            progress_frame,
+            progress_row,
             text="0:00 / 0:00",
-            font=self.fonts["small"],
+            font=self.fonts["control"],
             bg=self.colors["card_bg"],
-            fg=self.colors["subtext"],
+            fg=self.colors["accent_dark"],
+            width=12,
         )
-        self.time_label.pack(anchor=tk.W, pady=(5, 0))
+        self.time_label.pack(side=tk.LEFT)
 
-        # 音量控制框架
-        volume_frame = tk.Frame(main_card, bg=self.colors["card_bg"])
-        volume_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+        # ===== 音量与资源管理 =====
+        settings_frame = tk.LabelFrame(
+            main_frame,
+            text="🔧 音效设定",
+            font=self.fonts["subtitle"],
+            padx=15,
+            pady=12,
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent_dark"],
+            bd=1,
+            relief=tk.SOLID,
+        )
+        settings_frame.pack(fill=tk.X, pady=(0, 10), ipady=5)
+
+        # 音量控制
+        volume_row = tk.Frame(settings_frame, bg=self.colors["card_bg"])
+        volume_row.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(
-            volume_frame,
-            text="音量:",
-            font=self.fonts["base"],
+            volume_row,
+            text="场馆音量: ",
+            font=self.fonts["control"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
         ).pack(side=tk.LEFT)
 
         self.volume_var = tk.IntVar(value=self.music_volume)
         volume_scale = tk.Scale(
-            volume_frame,
+            volume_row,
             from_=0,
             to=100,
             orient=tk.HORIZONTAL,
             variable=self.volume_var,
             command=self._on_volume_change,
+            length=250,
+            font=self.fonts["small"],
             bg=self.colors["card_bg"],
             fg=self.colors["text"],
             highlightthickness=0,
             troughcolor=self.colors["tab_bg"],
             activebackground=self.colors["accent"],
             sliderrelief=tk.FLAT,
-            length=200,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
-        volume_scale.pack(side=tk.LEFT, padx=(10, 0))
+        volume_scale.pack(side=tk.LEFT, padx=(5, 10))
 
         self.volume_label = tk.Label(
-            volume_frame,
+            volume_row,
             text=f"{self.music_volume}%",
-            font=self.fonts["base"],
+            font=self.fonts["control"],
             bg=self.colors["card_bg"],
             fg=self.colors["accent_dark"],
             width=5,
         )
-        self.volume_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.volume_label.pack(side=tk.LEFT)
 
-        # 操作按钮框架
-        action_frame = tk.Frame(main_card, bg=self.colors["card_bg"])
-        action_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+        # 资源管理按钮
+        resource_row = tk.Frame(settings_frame, bg=self.colors["card_bg"])
+        resource_row.pack(fill=tk.X)
+
+        secondary_btn_style = {
+            "bg": self.colors["tab_bg"],
+            "fg": self.colors["text"],
+            "activebackground": self.colors["tab_active"],
+            "activeforeground": self.colors["accent_dark"],
+            "font": self.fonts["base"],
+            "relief": tk.FLAT,
+            "bd": 0,
+            "cursor": "hand2",
+            "width": 12,
+            "height": 1,
+        }
 
         refresh_btn = tk.Button(
-            action_frame,
-            text="🔄 刷新列表",
+            resource_row,
+            text="🔄 刷新曲目",
             command=self._refresh_list,
-            bg=self.colors["tab_bg"],
-            fg=self.colors["text"],
-            activebackground=self.colors["tab_active"],
-            activeforeground=self.colors["accent_dark"],
-            font=self.fonts["base"],
-            relief=tk.FLAT,
-            bd=0,
-            cursor="hand2",
+            **secondary_btn_style,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
         refresh_btn.pack(side=tk.LEFT, padx=(0, 10))
 
         import_btn = tk.Button(
-            action_frame,
-            text="📁 导入音乐",
+            resource_row,
+            text="📥 导入曲目",
             command=self._import_music,
-            bg=self.colors["tab_bg"],
-            fg=self.colors["text"],
-            activebackground=self.colors["tab_active"],
-            activeforeground=self.colors["accent_dark"],
-            font=self.fonts["base"],
-            relief=tk.FLAT,
-            bd=0,
-            cursor="hand2",
+            **secondary_btn_style,
             state=tk.NORMAL if self.music_enabled else tk.DISABLED,
         )
         import_btn.pack(side=tk.LEFT)
 
-        # 说明文字
-        tk.Label(
-            main_card,
-            text="提示：将WAV格式音乐文件放入 sound/music/ 目录",
-            font=self.fonts["small"],
-            fg=self.colors["subtext"],
-            bg=self.colors["card_bg"],
-        ).pack(anchor=tk.W, padx=15, pady=(0, 15))
-
+        # 保存按钮引用
         self.action_buttons = [refresh_btn, import_btn]
 
     def _load_music_files(self):
@@ -1836,6 +1843,10 @@ class MusicPlayerEmbedded:
                 if file.lower().endswith(".wav"):
                     self.music_files.append(os.path.join(music_dir, file))
 
+        # 同步到核心播放器
+        self.core_player.music_files = self.music_files
+        self.core_player.load_music_files_internal()
+
         self._update_listbox()
 
     def _update_listbox(self):
@@ -1844,33 +1855,20 @@ class MusicPlayerEmbedded:
 
         self.listbox.delete(0, tk.END)
         for file in self.music_files:
-            self.listbox.insert(tk.END, os.path.basename(file))
+            self.listbox.insert(tk.END, f" ♪ {os.path.basename(file)}")
 
         if self.current_index >= 0 and self.current_index < len(self.music_files):
             self.listbox.selection_set(self.current_index)
             self.listbox.see(self.current_index)
-
-    def _on_enabled_changed(self):
-        """启用状态改变"""
-        self.music_enabled = self.enabled_var.get()
-        config = load_config()
-        config["music_enabled"] = self.music_enabled
-        save_config(config)
-
-        # 更新按钮状态
-        state = tk.NORMAL if self.music_enabled else tk.DISABLED
-        self.prev_btn.config(state=state)
-        self.play_btn.config(state=state)
-        self.next_btn.config(state=state)
-        self.progress_bar.config(state=state)
-        for btn in self.action_buttons:
-            btn.config(state=state)
 
     def _on_volume_change(self, value):
         """音量改变"""
         volume = int(float(value))
         self.music_volume = volume
         self.volume_label.config(text=f"{volume}%")
+
+        # 同步到核心播放器，实时调整音量
+        self.core_player.music_volume = volume
 
         config = load_config()
         config["music_volume"] = volume
@@ -1899,19 +1897,27 @@ class MusicPlayerEmbedded:
         if not self.music_files or self.current_index < 0:
             return
 
-        # 这里应该调用实际的音乐播放逻辑
-        # 简化版本，仅更新UI状态
-        self.is_playing = True
-        self.is_paused = False
-        self.play_btn.config(text="⏸ 暂停")
+        # 同步当前索引到核心播放器
+        self.core_player.current_index = self.current_index
+        self.core_player.music_files = self.music_files
 
-        # 启动进度更新
-        self._start_progress_update()
+        # 调用核心播放器播放
+        self.core_player.play_current_track()
+
+        # 更新UI状态
+        self.is_playing = self.core_player.is_playing
+        self.is_paused = self.core_player.is_paused
+        self.play_btn.config(text="⏸ 暂停演出")
 
     def _pause(self):
         """暂停播放"""
-        self.is_paused = True
-        self.play_btn.config(text="▶ 继续")
+        # 调用核心播放器暂停
+        self.core_player.toggle_play_pause()
+
+        # 更新UI状态
+        self.is_playing = self.core_player.is_playing
+        self.is_paused = self.core_player.is_paused
+        self.play_btn.config(text="▶ 继续演出")
 
     def _previous_track(self):
         """上一首"""
@@ -1931,12 +1937,63 @@ class MusicPlayerEmbedded:
         if self.is_playing:
             self._play_current()
 
-    def _start_progress_update(self):
-        """开始更新进度"""
-        if self.is_playing and not self.is_paused:
-            # 这里应该获取实际播放进度
-            # 简化版本，仅演示
-            pass
+    def _start_progress_loop(self):
+        """启动进度更新循环"""
+        self._update_progress_ui()
+
+    def _update_progress_ui(self):
+        """更新进度UI"""
+        try:
+            if self.core_player.is_playing and not self.core_player.is_paused:
+                # 更新播放按钮状态
+                if self.play_btn.cget("text") != "⏸ 暂停演出":
+                    self.play_btn.config(text="⏸ 暂停演出")
+
+                # 更新进度条（如果有进度信息）
+                if self.core_player.total_length > 0 and self.core_player.sample_rate:
+                    # 用 sample_rate 和 current_position 计算进度
+                    current_ms = int(
+                        self.core_player.current_position
+                        * 1000
+                        / self.core_player.sample_rate
+                    )
+                    progress = (
+                        (current_ms / self.core_player.total_length) * 100
+                        if self.core_player.total_length > 0
+                        else 0
+                    )
+                    self.progress_var.set(min(progress, 100))
+
+                    # 更新时间显示
+                    self.time_label.config(
+                        text=f"{self._format_time(current_ms)} / {self._format_time(self.core_player.total_length)}"
+                    )
+            else:
+                # 更新播放按钮状态
+                if (
+                    self.core_player.is_paused
+                    and self.play_btn.cget("text") != "▶ 继续演出"
+                ):
+                    self.play_btn.config(text="▶ 继续演出")
+
+            # 继续循环 - 检查窗口是否还存在
+            if hasattr(self, "parent") and self.parent.winfo_exists():
+                self.parent.after(100, self._update_progress_ui)
+        except Exception as e:
+            # 静默处理更新错误，继续循环
+            if hasattr(self, "parent"):
+                try:
+                    if self.parent.winfo_exists():
+                        self.parent.after(100, self._update_progress_ui)
+                except Exception:
+                    pass
+
+    def _format_time(self, ms):
+        """格式化时间显示"""
+        seconds = ms // 1000
+        minutes = seconds // 60
+        seconds = seconds % 60
+        return f"{minutes}:{seconds:02d}"
 
     def _refresh_list(self):
         """刷新音乐列表"""

@@ -47,6 +47,7 @@ def main():
                 pet_root = self.root if not self.pets else tk.Toplevel(self.root)
                 pet = DesktopGif(pet_root)
                 self.pets.append(pet)
+                self._apply_state_to_pet(pet)
             self._sync_state_from_primary()
 
         def _sync_state_from_primary(self):
@@ -93,6 +94,8 @@ def main():
             if pet.voice_player:
                 pet.voice_player.set_enabled(self.voice_enabled)
                 pet.voice_player.set_volume(self.voice_volume)
+            # 设置管理器引用
+            pet.manager = self
 
         def set_click_through(self, enable):
             self.click_through = enable
