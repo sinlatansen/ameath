@@ -1,5 +1,6 @@
 """设置窗口模块 - 包含个性化、检查更新、关于三个标签页"""
 
+import os
 import tkinter as tk
 import getpass
 from tkinter import messagebox
@@ -134,11 +135,9 @@ class SettingsWindow:
 
         # 设置窗口图标
         try:
-            icon_image = Image.open(resource_path("gifs/ameath.gif"))
-            icon_image = icon_image.resize((64, 64), Image.Resampling.LANCZOS)
-            icon_pil = icon_image.convert("RGBA")
-            app_icon = ImageTk.PhotoImage(icon_pil)
-            self.window.iconphoto(True, app_icon)
+            icon_path = resource_path("gifs/ameath.ico")
+            if os.path.exists(icon_path):
+                self.window.iconbitmap(icon_path)
         except Exception:
             pass
 
