@@ -48,6 +48,7 @@
 ## 🤝 贡献
 
 欢迎 fork 仓库或者提交 Issue 和 Pull Request！
+Issue里的需求，如果您打算贡献，请告知我。
 
 ---
 
