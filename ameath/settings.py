@@ -1,5 +1,6 @@
 """设置窗口模块 - 包含个性化、检查更新、关于三个标签页"""
 
+import os
 import tkinter as tk
 import getpass
 from tkinter import messagebox
@@ -134,11 +135,9 @@ class SettingsWindow:
 
         # 设置窗口图标
         try:
-            icon_image = Image.open(resource_path("gifs/ameath.gif"))
-            icon_image = icon_image.resize((64, 64), Image.Resampling.LANCZOS)
-            icon_pil = icon_image.convert("RGBA")
-            app_icon = ImageTk.PhotoImage(icon_pil)
-            self.window.iconphoto(True, app_icon)
+            icon_path = resource_path("gifs/ameath.ico")
+            if os.path.exists(icon_path):
+                self.window.iconbitmap(icon_path)
         except Exception:
             pass
 
@@ -1655,13 +1654,40 @@ class MusicPlayerEmbedded:
             relief=tk.SUNKEN,
             highlightthickness=0,
             activestyle="none",
-            height=5,
+            height=8,
             width=45,
         )
         self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
         scrollbar.config(command=self.listbox.yview)
 
         self.listbox.bind("<Double-Button-1>", self._on_double_click)
+
+        # 获取用户音乐文件夹路径（首次运行复制自带歌曲）
+        self.music_folder = self._get_user_music_folder()
+
+        # 可点击的文件夹路径标签
+        folder_label = tk.Label(
+            playlist_frame,
+            text=f"📁 打开歌曲文件夹: {self.music_folder}",
+            font=self.fonts["small"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["accent"],
+            cursor="hand2",
+        )
+        folder_label.pack(pady=(5, 0))
+        folder_label.bind("<Button-1>", lambda e: self._open_music_folder())
+
+        # 刷新按钮
+        refresh_btn = tk.Label(
+            playlist_frame,
+            text="🔄 点击刷新歌曲列表",
+            font=self.fonts["small"],
+            bg=self.colors["card_bg"],
+            fg=self.colors["subtext"],
+            cursor="hand2",
+        )
+        refresh_btn.pack(pady=(3, 0))
+        refresh_btn.bind("<Button-1>", lambda e: self._refresh_list())
 
         # ===== 演出控制台 =====
         console_frame = tk.LabelFrame(
@@ -1823,50 +1849,48 @@ class MusicPlayerEmbedded:
         )
         self.volume_label.pack(side=tk.LEFT)
 
-        # 资源管理按钮
-        resource_row = tk.Frame(settings_frame, bg=self.colors["card_bg"])
-        resource_row.pack(fill=tk.X)
+        # 保存按钮引用（空列表，因为已删除按钮）
+        self.action_buttons = []
 
-        secondary_btn_style = {
-            "bg": self.colors["tab_bg"],
-            "fg": self.colors["text"],
-            "activebackground": self.colors["tab_active"],
-            "activeforeground": self.colors["accent_dark"],
-            "font": self.fonts["base"],
-            "relief": tk.FLAT,
-            "bd": 0,
-            "cursor": "hand2",
-            "width": 12,
-            "height": 1,
-        }
+    def _get_user_music_folder(self):
+        """获取用户音乐文件夹路径，首次运行复制自带歌曲"""
+        import os
+        import shutil
+        from .utils import resource_path
 
-        refresh_btn = tk.Button(
-            resource_row,
-            text="🔄 刷新曲目",
-            command=self._refresh_list,
-            **secondary_btn_style,
-            state=tk.NORMAL if self.music_enabled else tk.DISABLED,
-        )
-        refresh_btn.pack(side=tk.LEFT, padx=(0, 10))
+        music_folder = os.path.join(os.path.expanduser("~"), "ameath_songs")
 
-        import_btn = tk.Button(
-            resource_row,
-            text="📥 导入曲目",
-            command=self._import_music,
-            **secondary_btn_style,
-            state=tk.NORMAL if self.music_enabled else tk.DISABLED,
-        )
-        import_btn.pack(side=tk.LEFT)
+        # 如果文件夹不存在，创建它
+        if not os.path.exists(music_folder):
+            os.makedirs(music_folder, exist_ok=True)
 
-        # 保存按钮引用
-        self.action_buttons = [refresh_btn, import_btn]
+            # 首次运行，复制自带歌曲（使用 resource_path 获取打包后的路径）
+            bundled_music = resource_path("sound/music")
+            if os.path.exists(bundled_music):
+                for file in os.listdir(bundled_music):
+                    if file.lower().endswith((".wav", ".mp3")):
+                        src = os.path.join(bundled_music, file)
+                        dst = os.path.join(music_folder, file)
+                        shutil.copy2(src, dst)
+
+        return music_folder
+
+    def _open_music_folder(self):
+        """打开音乐文件夹"""
+        import os
+        import subprocess
+
+        try:
+            subprocess.Popen(f'explorer "{self.music_folder}"', shell=True)
+        except Exception as e:
+            print(f"打开文件夹失败: {e}")
 
     def _load_music_files(self):
         """加载音乐文件列表"""
         import os
-        from .utils import resource_path
 
-        music_dir = resource_path("sound/music")
+        # 使用用户音乐文件夹
+        music_dir = self.music_folder
         self.music_files = []
 
         if os.path.exists(music_dir):
