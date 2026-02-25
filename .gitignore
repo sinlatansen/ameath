@@ -9,8 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-justfile
-
 config.json
 git_hash.txt
 
