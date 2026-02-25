@@ -3,7 +3,7 @@ set shell := ["nu", "-c"]
 default: dev
 
 alias d := dev
-alias b := dev
+alias b := build
 
 dev:
     uv run ./main.py

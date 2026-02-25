@@ -337,16 +337,28 @@ def setup_update_callbacks(SettingsWindow):
     def _on_download_result(self, result):
         """下载更新结果回调"""
         self.check_btn.config(state=tk.NORMAL)
-        if result:
+        if result is None:
+            # 下载成功，触发程序退出以进行更新
             self.update_status_label.config(
-                text="下载完成，将自动安装并重启", fg=self.colors["accent"]
+                text="下载完成，程序即将退出。请等待更新完成后手动重启。", fg=self.colors["accent"]
             )
-            self.window.after(2000, self._on_close)
+            # 延迟一小段时间让用户看到提示，然后退出
+            self.window.after(2000, self._trigger_quit_for_update)
         else:
-            self.update_status_label.config(text="下载失败，请稍后重试", fg="#D24B4B")
+            # 下载失败，显示错误信息
+            self.update_status_label.config(text=f"下载失败: {result}", fg="#D24B4B")
             self.download_btn.config(state=tk.NORMAL)
             self.skip_btn.config(state=tk.NORMAL)
 
+    def _trigger_quit_for_update(self):
+        """触发程序退出以进行更新"""
+        # 关闭设置窗口
+        if self.window and self.window.winfo_exists():
+            self.window.destroy()
+            self.window = None
+        # 请求主程序退出
+        if self.app and hasattr(self.app, "request_quit"):
+            self.app.request_quit()
     def _on_download_error(self, error_msg):
         """下载更新错误回调"""
         self.check_btn.config(state=tk.NORMAL)
@@ -394,3 +406,5 @@ def setup_update_callbacks(SettingsWindow):
     SettingsWindow._on_update_error = _on_update_error
     SettingsWindow._on_skip_version = _on_skip_version
     SettingsWindow._on_skip_updates_changed = _on_skip_updates_changed
+
+    SettingsWindow._trigger_quit_for_update = _trigger_quit_for_update
