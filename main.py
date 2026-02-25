@@ -17,14 +17,19 @@ except Exception:
 def main():
     from ameath.config import load_config
     from ameath.pet import DesktopGif
-    from ameath.settings import SettingsWindow
     from ameath.utils import check_new_version, get_version, version_greater_than
+    from ameath.settings import SettingsWindow
 
     VERSION = get_version()
 
     root = tk.Tk()
     # 立即隐藏窗口，避免闪烁
     root.withdraw()
+
+    # 创建根窗口后立即加载自定义字体
+    from ameath.fonts import _load_zpix_font
+
+    _load_zpix_font()
 
     class PetManager:
         def __init__(self, master, count):
@@ -33,9 +38,13 @@ def main():
             self._visible = True
             self._request_quit = False
             self.is_paused = False
-            self.follow_mouse = False
-            self.click_through = True
-            self.display_priority = 1
+            # 从配置文件读取所有设置
+            config = load_config()
+            self.follow_mouse = config.get("follow_mouse", False)
+            self.click_through = config.get("click_through", False)
+            self.display_priority = config.get("display_priority", 1)
+            self.voice_enabled = config.get("voice_enabled", True)
+            self.voice_volume = config.get("voice_volume", 100)
             self._create_instances(count)
 
         def _create_instances(self, count):
@@ -43,6 +52,7 @@ def main():
                 pet_root = self.root if not self.pets else tk.Toplevel(self.root)
                 pet = DesktopGif(pet_root)
                 self.pets.append(pet)
+                self._apply_state_to_pet(pet)
             self._sync_state_from_primary()
 
         def _sync_state_from_primary(self):
@@ -85,6 +95,12 @@ def main():
             pet.set_display_priority(self.display_priority, persist=False)
             if not self._visible:
                 pet.root.withdraw()
+            # 应用语音设置
+            if pet.voice_player:
+                pet.voice_player.set_enabled(self.voice_enabled)
+                pet.voice_player.set_volume(self.voice_volume)
+            # 设置管理器引用
+            pet.manager = self
 
         def set_click_through(self, enable):
             self.click_through = enable
@@ -119,14 +135,30 @@ def main():
             for pet in self.pets:
                 pet.set_wander_idle_stay_mode(mode)
 
+        def set_voice_enabled(self, enabled):
+            """设置所有宠物的语音开关"""
+            self.voice_enabled = enabled
+            for pet in self.pets:
+                if pet.voice_player:
+                    pet.voice_player.set_enabled(enabled)
+
+        def set_voice_volume(self, volume):
+            """设置所有宠物的语音音量"""
+            self.voice_volume = volume
+            for pet in self.pets:
+                if pet.voice_player:
+                    pet.voice_player.set_volume(volume)
+
         def hide_all(self):
             self._visible = False
             for pet in self.pets:
+                pet._user_hidden = True  # 标记为用户手动隐藏
                 pet.root.withdraw()
 
         def show_all(self):
             self._visible = True
             for pet in self.pets:
+                pet._user_hidden = False  # 清除用户手动隐藏标记
                 pet.root.deiconify()
 
         def is_visible(self):

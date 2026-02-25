@@ -12,6 +12,8 @@ from .constants import (
     DEFAULT_SCALE_INDEX,
     DEFAULT_TRANSPARENCY_INDEX,
     DEFAULT_WANDER_IDLE_STAY_MODE,
+    DEFAULT_VOICE_ENABLED,
+    DEFAULT_VOICE_VOLUME,
     EDGE_ESCAPE_CHANCE,
     FOLLOW_DISTANCE,
     FOLLOW_START_DIST,
@@ -59,6 +61,7 @@ from .constants import (
     WS_EX_TRANSPARENT,
 )
 from .utils import flip_frames, load_gif_frames, resource_path
+from .voice import VoicePlayer
 
 
 class DesktopGif:
@@ -69,12 +72,26 @@ class DesktopGif:
         self._request_quit = False  # 退出标志（主线程统一收尾）
         self.display_priority = 1
         self._hidden_by_fullscreen = False
+        self._user_hidden = False  # 用户手动隐藏标志
 
         # 立即设置无边框，避免闪烁
         root.overrideredirect(True)
         root.attributes("-topmost", True)
         root.config(bg=TRANSPARENT_COLOR)
         root.attributes("-transparentcolor", TRANSPARENT_COLOR)
+
+        # 初始化语音播放器
+        try:
+            self.voice_player = VoicePlayer()
+            # 加载语音配置
+            voice_config = load_config()
+            voice_enabled = voice_config.get("voice_enabled", DEFAULT_VOICE_ENABLED)
+            voice_volume = voice_config.get("voice_volume", DEFAULT_VOICE_VOLUME)
+            if self.voice_player:
+                self.voice_player.set_enabled(voice_enabled)
+                self.voice_player.set_volume(voice_volume)
+        except Exception:
+            self.voice_player = None
 
         # 加载配置
         config = load_config()
@@ -224,10 +241,33 @@ class DesktopGif:
         # 启动退出轮询（主线程统一收尾）
         self.root.after(100, self.check_quit)
 
+        # 绑定右键事件
+        self.label.bind("<Button-3>", self.handle_right_click)
+
+    def handle_right_click(self, event):
+        """处理右键点击事件 - 打开设置窗口音乐标签页"""
+        config = load_config()
+        music_enabled = config.get("music_enabled", False)
+
+        if music_enabled:
+            # 打开设置窗口并切换到音乐标签页
+            from .settings import show_settings_dialog
+            from .utils import get_version
+
+            # 使用 manager（PetManager）而不是 app（Icon）
+            manager = getattr(self, "manager", None)
+            if manager:
+                show_settings_dialog(
+                    self.root, manager, get_version(), open_music_tab=True
+                )
+
     def ensure_visibility(self):
         """轻量级可见性轮询（替代Shell Hook）"""
         try:
-            if self.display_priority == 1:
+            # 如果用户手动隐藏，不自动恢复显示
+            if self._user_hidden:
+                pass
+            elif self.display_priority == 1:
                 self._apply_topmost()
             elif self.display_priority == 2:
                 self._apply_fullscreen_hide()
@@ -358,6 +398,9 @@ class DesktopGif:
             config["display_priority"] = mode
             save_config(config)
         try:
+            # 如果用户手动隐藏，不改变窗口可见性
+            if self._user_hidden:
+                return
             if self.display_priority == 1:
                 self._apply_topmost()
             elif self.display_priority == 2:
@@ -467,6 +510,10 @@ class DesktopGif:
         self.current_delays = self.drag_delays
         self.frame_index = 0
         self.label.config(image=self.current_frames[0])
+
+        # 播放随机语音（如果启用）
+        if self.voice_player:
+            self.voice_player.play_random_voice()
 
     def do_drag(self, event):
         """拖动中"""
