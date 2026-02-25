@@ -1,5 +1,6 @@
 import itertools
 import json
+import re
 import os
 import subprocess
 import sys
@@ -198,6 +199,12 @@ def _download_file(url, target_path):
             f.write(response.read())
 
 
+def _extract_version(asset_name):
+    """从 asset_name 中提取版本号"""
+    match = re.search(r'[vV]?(\d+\.\d+(?:\.\d+)?)', asset_name)
+    return match.group(1) if match else ""
+
+
 def _write_update_script(
     script_path,
     current_exe,
@@ -206,59 +213,176 @@ def _write_update_script(
     cleanup_files,
     cleanup_dirs,
     pid,
+    current_version="",
+    new_version="",
 ):
+    """生成更新脚本
+    
+    Args:
+        script_path: 脚本保存路径
+        current_exe: 当前可执行文件路径
+        update_mode: 更新模式 ("exe" 或 "dir")
+        source_path: 源文件/目录路径
+        cleanup_files: 需要清理的文件列表
+        cleanup_dirs: 需要清理的目录列表
+        pid: 当前进程ID
+        current_version: 当前版本号
+        new_version: 新版本号
+    """
     lines = [
         "@echo off",
-        "setlocal",
+        "chcp 65001 >nul",
+        "setlocal enabledelayedexpansion",
         f"set PID={pid}",
         f"set CUR_EXE={current_exe}",
         f"set SRC={source_path}",
+        f"set UPDATE_MODE={update_mode}",
+        f"set CUR_VER={current_version}",
+        f"set NEW_VER={new_version}",
         'for %%I in ("%CUR_EXE%") do set EXE_NAME=%%~nxI',
-        ":wait",
-        'tasklist /FI "PID eq %PID%" | find "%PID%" >nul',
-        "if not errorlevel 1 (timeout /t 1 >nul & goto wait)",
+        'for %%I in ("%CUR_EXE%") do set APP_DIR=%%~dpI',
+        "",
+        "echo.",
+        "echo ========================================",
+        "echo         Ameath 自动更新程序",
+        "echo ========================================",
+        "echo.",
+        "echo 正在更新: %EXE_NAME%",
+        'if "%CUR_VER%" NEQ "" echo 当前版本: %CUR_VER%',
+        'if "%NEW_VER%" NEQ "" echo 新版本:     %NEW_VER%',
+        "echo.",
+        "echo 请保存您的工作，更新程序将自动替换文件...",
+        "echo.",
+        "",
+        "REM ===== [1/4] 等待原进程退出 =====",
+        "set WAIT_COUNT=0",
+        ":wait_pid",
+        "echo [1/4] 等待程序退出... (PID: %PID%, 已等待 %WAIT_COUNT% 秒)",
+        "",
+        "REM 使用 tasklist 检查指定PID是否仍在运行",
+        'tasklist /FI "PID eq %PID%" /FO CSV 2>nul | findstr /I "^\"%PID%\"" >nul',
+        "if errorlevel 1 (",
+        "    REM 进程已退出",
+        "    goto pid_exited",
+        ")",
+        "",
+        "REM 进程仍在运行，继续等待",
+        "set /a WAIT_COUNT+=2",
+        "if %WAIT_COUNT% GEQ 60 (",
+        "    echo.",
+        "    echo [警告] 等待超时，尝试强制结束进程...",
+        '    taskkill /F /PID %PID% 2>nul',
+        "    timeout /t 2 >nul",
+        ")",
+        "echo      程序仍在运行，请保存工作后关闭程序",
+        "timeout /t 2 >nul",
+        "cls",
+        "goto wait_pid",
+        "",
+        ":pid_exited",
+        "echo      进程已退出 (PID: %PID%)",
+        "",
+        "REM ===== 额外等待，确保文件句柄释放 =====",
+        "echo      等待文件句柄释放...",
+        "timeout /t 2 >nul",
+        "",
+        "REM ===== [2/4] 复制文件 =====",
+        "echo [2/4] 开始复制文件...",
     ]
+    # 添加调试信息
+    lines.extend(
+        [
+            "echo      更新模式: %UPDATE_MODE%",
+            "echo      源路径: %SRC%",
+            "echo      目标目录: %APP_DIR%",
+        ]
+    )
+
     if update_mode == "dir":
         lines.extend(
             [
-                'for %%I in ("%CUR_EXE%") do set APP_DIR=%%~dpI',
-                'xcopy /y /e /i "%SRC%\\*" "%APP_DIR%" >nul',
+                "echo      正在复制目录文件...",
+                "REM 使用 robocopy 替代 xcopy（更可靠）",
+                'robocopy "%SRC%" "%APP_DIR%" /e /is /it /r:3 /w:1',
+                "REM robocopy 返回码 0-7 都表示成功",
+                "if %ERRORLEVEL% GTR 7 (",
+                "    echo.",
+                "    echo [错误] 目录复制失败，错误码: %ERRORLEVEL%",
+                "    pause",
+                "    goto end",
+                ")",
+                "echo      目录复制完成",
+            ]
+        )
+    elif update_mode == "exe":
+        lines.extend(
+            [
+                "echo      正在复制单个文件...",
+                "set RETRY=0",
+                ":copy_retry",
+                'attrib -r "%CUR_EXE%" 2>nul',
+                'copy /y "%SRC%" "%CUR_EXE%" && goto copy_success',
+                "REM 复制失败，重试",
+                "set /a RETRY+=1",
+                "if %RETRY% GEQ 10 (",
+                "    echo.",
+                "    echo [错误] 复制失败，已重试 10 次",
+                "    pause",
+                "    goto end",
+                ")",
+                "echo      重试中... (第 !RETRY! 次)",
+                "timeout /t 1 >nul",
+                "goto copy_retry",
+                ":copy_success",
+                "echo      文件复制成功",
             ]
         )
     else:
         lines.extend(
             [
-                "set RETRY=0",
-                ":copy_retry",
-                'attrib -r "%CUR_EXE%" >nul 2>&1',
-                'copy /y "%SRC%" "%CUR_EXE%" >nul',
-                "if errorlevel 1 (",
-                "  set /a RETRY+=1",
-                "  if %RETRY% GEQ 10 goto copy_fail",
-                "  timeout /t 1 >nul",
-                "  goto copy_retry",
-                ")",
-                "goto copy_ok",
-                ":copy_fail",
-                "echo update copy failed",
+                "echo.",
+                "echo [错误] 未知的更新模式",
+                "pause",
                 "goto end",
-                ":copy_ok",
             ]
         )
     lines.extend(
         [
-            "echo update finished",
+            "",
+            "REM ===== [3/4] 清理临时文件 =====",
+            "echo [3/4] 清理临时文件...",
         ]
     )
+    
     for path in cleanup_files:
-        lines.append(f'del /f /q "{path}"')
+        lines.append(f'echo      删除: {os.path.basename(path)}')
+        lines.append(f'del /f /q "{path}" 2>nul')
+    
     for path in cleanup_dirs:
-        lines.append(f'rmdir /s /q "{path}"')
-    lines.append(":end")
-    lines.append('del "%~f0"')
+        lines.append(f'echo      删除目录: {os.path.basename(path)}')
+        lines.append(f'rmdir /s /q "{path}" 2>nul')
+    
+    lines.extend(
+        [
+            "echo      清理完成",
+            "",
+            "echo.",
+            "echo ========================================",
+            "echo   更新完成！",
+            "echo ========================================",
+            "echo.",
+            "echo 请手动启动程序完成更新。",
+            "echo.",
+            "pause",
+            "",
+            ":end",
+            "REM 自删除脚本",
+            'del "%~f0" 2>nul',
+        ]
+    )
+    
     with open(script_path, "w", encoding="utf-8") as f:
         f.write("\r\n".join(lines))
-
 
 def download_and_update(asset_url, asset_name):
     """下载更新并通过 bat 完成自我替换，返回 None 或错误信息"""
@@ -315,7 +439,20 @@ def download_and_update(asset_url, asset_name):
         else:
             return "不支持的更新文件类型"
 
+        # 验证 source_path
+        if not source_path or not os.path.exists(source_path):
+            return f"源文件不存在: {source_path}"
+
+        # 打印调试信息
+        print(f"[更新] source_path: {source_path}")
+        print(f"[更新] update_mode: {update_mode}")
+        print(f"[更新] current_exe: {current_exe}")
+
         script_path = os.path.join(app_dir, "_ameath_update.bat")
+        # 获取当前版本
+        current_version = get_version()
+        # 从 asset_name 提取新版本号
+        new_version = _extract_version(asset_name)
         _write_update_script(
             script_path,
             current_exe,
@@ -324,16 +461,19 @@ def download_and_update(asset_url, asset_name):
             cleanup_files,
             cleanup_dirs,
             os.getpid(),
+            current_version,
+            new_version,
         )
 
-        try:
-            os.startfile(script_path)
-        except Exception:
-            subprocess.Popen(
-                ["cmd", "/c", "start", "", script_path],
-                cwd=app_dir,
-                shell=False,
-            )
+        # 启动更新脚本，显示黑框让用户看到进度
+        # 使用 Popen 不等待，让 Python 程序可以立即退出
+        subprocess.Popen(
+            ["cmd", "/c", "start", "", script_path],
+            cwd=app_dir,
+            shell=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         return None
     except Exception as e:
         return str(e)
