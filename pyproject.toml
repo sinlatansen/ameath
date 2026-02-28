@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.4.2",
     "sounddevice>=0.5.5",
     "soundfile>=0.13.1",
+    "pywin32>=311",
 ]
 
 [tool.black]

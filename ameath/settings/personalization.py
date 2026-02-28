@@ -850,3 +850,6 @@ def setup_personalization_callbacks(SettingsWindow):
     SettingsWindow._on_display_priority_changed = _on_display_priority_changed
     SettingsWindow._on_wander_idle_stay_mode_changed = _on_wander_idle_stay_mode_changed
     SettingsWindow._on_instance_count_confirm = _on_instance_count_confirm
+
+
+# TODO: 鸣潮窗口吸附功能的开启与否
