@@ -144,6 +144,13 @@ class SettingsWindow:
             icon_path = resource_path("gifs/ameath.ico")
             if os.path.exists(icon_path):
                 self.window.iconbitmap(icon_path)
+            # 使用 PNG 图标获得更好的清晰度
+            png_path = resource_path("gifs/ameath_content.png")
+            if os.path.exists(png_path):
+                from PIL import Image, ImageTk
+                img = Image.open(png_path)
+                photo = ImageTk.PhotoImage(img)
+                self.window.iconphoto(True, photo)
         except Exception:
             pass
 
