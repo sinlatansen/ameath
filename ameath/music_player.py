@@ -214,6 +214,13 @@ class MusicPlayer:
                 icon_path = resource_path("gifs/ameath.ico")
                 if os.path.exists(icon_path):
                     self.parent.iconbitmap(icon_path)
+                # 使用 PNG 图标获得更好的清晰度
+                png_path = resource_path("gifs/ameath_content.png")
+                if os.path.exists(png_path):
+                    from PIL import Image, ImageTk
+                    img = Image.open(png_path)
+                    photo = ImageTk.PhotoImage(img)
+                    self.parent.iconphoto(True, photo)
             except Exception as e:
                 print(f"设置窗口图标失败: {e}")
 

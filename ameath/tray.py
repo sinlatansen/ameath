@@ -72,7 +72,7 @@ def create_tray(app, version):
 
     def _create_menu(app_instance):
         """动态创建菜单"""
-        return (
+        return pystray.Menu(
             pystray.MenuItem(
                 "隐藏" if app_instance.is_visible() else "显示",
                 on_toggle_visible,
