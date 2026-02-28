@@ -49,8 +49,8 @@ REST_CHANCE = 0.6  # 到达目标后休息的概率
 REST_DURATION_MIN = 1000  # 休息最小时间(ms)
 REST_DURATION_MAX = 3000  # 休息最大时间(ms)
 REST_DISTANCE = 20  # 到达目标的判定距离
-MIN_INTERVAL = 3000  # 暂停模式随机动画最小时间(ms)
-MAX_INTERVAL = 12000  # 暂停模式随机动画最大时间(ms)
+MIN_INTERVAL = 30000  # 暂停模式随机动画最小时间(ms)
+MAX_INTERVAL = 120000  # 暂停模式随机动画最大时间(ms)
 
 # 跟随参数
 FOLLOW_START_DIST = 200  # 开始跟随的距离
