@@ -691,8 +691,9 @@ class DesktopGif:
         if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
             class_name = win32gui.GetClassName(hwnd)
             window_name = win32gui.GetWindowText(hwnd)
+            print(window_name)
             # 判断窗口是否需要捕获
-            if class_name.lower() in self.snap_class_name_lower or window_name.lower() in self.snap_window_name_lower:
+            if class_name.lower() in self.snap_class_name_lower or window_name.strip().lower() in self.snap_window_name_lower:
                 try:
                     # 判断是否窗口化
                     placement = win32gui.GetWindowPlacement(hwnd)
