@@ -129,7 +129,7 @@ class MusicPlayer:
         if self.stream:
             try:
                 import sounddevice as sd
-                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['default_output_device']
+                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['index']
             except:
                 pass
         MusicPlayer._shared_audio_data = self.audio_data
@@ -690,7 +690,7 @@ class MusicPlayer:
             # 初始化输出设备跟踪
             import sounddevice as sd
             if MusicPlayer._shared_output_device is None:
-                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['default_output_device']
+                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['index']
             
             current = start_sample
             chunk_size = int(self.sample_rate * 0.05)
