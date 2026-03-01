@@ -387,6 +387,8 @@ class MusicPlayerEmbedded:
 
         # 同步到核心播放器，实时调整音量
         self.core_player.music_volume = volume
+        # 调用apply_current_volume同步到共享变量，确保音频回调读取最新值
+        self.core_player.apply_current_volume()
 
         config = load_config()
         config["music_volume"] = volume
