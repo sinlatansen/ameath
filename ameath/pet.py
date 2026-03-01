@@ -112,8 +112,11 @@ class DesktopGif:
         self.snap_class_name = ["Notepad","TXGuiFoundation"]# 记事本和QQ
         self.snap_class_name_lower = {name.lower() for name in self.snap_class_name}
         # 捕获窗口的窗口名
-        self.snap_window_name = ["鸣潮","微信"]
-
+        self.snap_window_name = ["微信"]
+        self.snap_window_name_lower = {name.lower() for name in self.snap_window_name}
+        # 窗口名非精确匹配
+        self.snap_window_egg = ["鸣潮"]
+        self.snap_window_egg_lower = {name.lower() for name in self.snap_window_egg}
 
         # 获取屏幕
         monitors = get_monitors()
@@ -692,8 +695,9 @@ class DesktopGif:
         if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
             class_name = win32gui.GetClassName(hwnd)
             window_name = win32gui.GetWindowText(hwnd)
+            window_name_lower = window_name.strip().lower()
             # 判断窗口是否需要捕获
-            if class_name.lower() in self.snap_class_name_lower or any(name in window_name.lower() for name in self.snap_window_name):
+            if class_name.lower() in self.snap_class_name_lower or window_name_lower in self.snap_window_name_lower or any(name in window_name_lower for name in self.snap_window_egg_lower):
                 try:
                     # 判断是否窗口化
                     placement = win32gui.GetWindowPlacement(hwnd)
