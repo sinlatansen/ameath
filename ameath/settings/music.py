@@ -1,5 +1,6 @@
 """音乐播放器标签页"""
 
+import random
 import tkinter as tk
 
 from ..config import load_config, save_config
@@ -411,8 +412,13 @@ class MusicPlayerEmbedded:
 
     def _play_current(self):
         """播放当前选中的歌曲"""
-        if not self.music_files or self.current_index < 0:
+        if not self.music_files:
             return
+        
+        # 如果没有选中歌曲，随机选择一首
+        if self.current_index < 0:
+            self.current_index = random.randint(0, len(self.music_files) - 1)
+            self._update_listbox()
 
         # 同步当前索引到核心播放器
         self.core_player.current_index = self.current_index

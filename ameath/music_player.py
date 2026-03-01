@@ -19,6 +19,8 @@ class MusicPlayer:
 
     # 类变量，用于在GUI关闭后保持状态
     _instance = None
+    _shared_music_volume = 100
+    _shared_output_device = None  # 跟踪当前输出设备
     _shared_audio_data = None
     _shared_sample_rate = None
     _shared_channels = None
@@ -123,6 +125,13 @@ class MusicPlayer:
 
     def _sync_to_shared(self):
         """同步当前状态到共享变量"""
+        MusicPlayer._shared_music_volume = self.music_volume
+        if self.stream:
+            try:
+                import sounddevice as sd
+                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['default_output_device']
+            except:
+                pass
         MusicPlayer._shared_audio_data = self.audio_data
         MusicPlayer._shared_sample_rate = self.sample_rate
         MusicPlayer._shared_channels = self.channels
@@ -141,6 +150,7 @@ class MusicPlayer:
 
     def _sync_from_shared(self):
         """从共享变量恢复状态"""
+        self.music_volume = MusicPlayer._shared_music_volume
         self.audio_data = MusicPlayer._shared_audio_data
         self.sample_rate = MusicPlayer._shared_sample_rate
         self.channels = MusicPlayer._shared_channels
@@ -485,9 +495,53 @@ class MusicPlayer:
 
     def apply_current_volume(self):
         """应用当前音量到正在播放的音频"""
-        # 注意：这个音乐播放器使用的是 sounddevice，不是 pygame
-        # 音量控制在 feed_audio_thread 中处理
-        pass
+        # 同步到共享变量，确保音频回调读取最新值
+        MusicPlayer._shared_music_volume = self.music_volume
+
+    def check_and_switch_output_device(self):
+        """检查输出设备是否变化，如变化则重新创建音频流"""
+        if not self.is_playing or self.is_paused or not self.stream:
+            return
+        
+        try:
+            import sounddevice as sd
+            # 获取当前默认输出设备
+            default_device = sd.query_devices(kind='output')
+            current_device_id = default_device['default_output_device']
+            
+            # 如果设备未变化，不做处理
+            if MusicPlayer._shared_output_device == current_device_id:
+                return
+            
+            # 设备已变化，需要重新创建流
+            print(f"输出设备变化: {MusicPlayer._shared_output_device} -> {current_device_id}")
+            MusicPlayer._shared_output_device = current_device_id
+            
+            # 记录当前播放位置
+            current_pos = self.current_position
+            
+            # 停止当前流
+            self.stream.stop()
+            self.stream.close()
+            
+            # 创建新的流
+            self.stream = sd.OutputStream(
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype=np.float32,
+                blocksize=int(self.sample_rate * 0.05),
+                callback=self.audio_callback,
+            )
+            
+            # 重置播放位置
+            self.current_position = current_pos
+            
+            # 重新启动播放
+            self.stream.start()
+            print("已切换到新输出设备")
+            
+        except Exception as e:
+            print(f"切换输出设备失败: {e}")
 
     def update_listbox(self):
         """更新列表框显示"""
@@ -621,8 +675,8 @@ class MusicPlayer:
             elif len(data) > frames:
                 data = data[:frames]
 
-            # 应用音量（0-100%）
-            volume_factor = self.music_volume / 100.0
+            # 应用音量（0-100%）- 优先使用共享变量确保最新值
+            volume_factor = MusicPlayer._shared_music_volume / 100.0
             outdata[:] = (data * volume_factor).reshape(outdata.shape)
 
         except queue.Empty:
@@ -633,10 +687,18 @@ class MusicPlayer:
     def feed_audio_thread(self, start_sample):
         """后台线程：将音频数据填入队列"""
         try:
+            # 初始化输出设备跟踪
+            import sounddevice as sd
+            if MusicPlayer._shared_output_device is None:
+                MusicPlayer._shared_output_device = sd.query_devices(kind='output')['default_output_device']
+            
             current = start_sample
             chunk_size = int(self.sample_rate * 0.05)
 
             while current < len(self.audio_data) and not self.stop_event.is_set():
+                # 检查输出设备是否变化
+                self.check_and_switch_output_device()
+                
                 if self.pause_event.is_set():
                     self.paused_position = current
                     while self.pause_event.is_set() and not self.stop_event.is_set():
