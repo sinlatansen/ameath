@@ -2,6 +2,7 @@ import ctypes
 from ctypes import wintypes
 import os
 import win32gui
+import win32con
 import random
 import tkinter as tk
 from typing import Any
@@ -107,6 +108,13 @@ class DesktopGif:
             "wander_idle_stay_mode", DEFAULT_WANDER_IDLE_STAY_MODE
         )
 
+        # 捕获窗口的类名，可以用开源工具winspy获取
+        self.snap_class_name = ["Notepad","TXGuiFoundation"]# 记事本和QQ
+        self.snap_class_name_lower = {name.lower() for name in self.snap_class_name}
+        # 捕获窗口的窗口名
+        self.snap_window_name = ["鸣潮","微信"]
+
+
         # 获取屏幕
         monitors = get_monitors()
         if self.screen_index < 0 or self.screen_index + 1 > len(monitors):
@@ -188,7 +196,7 @@ class DesktopGif:
         self.current_delays = self.move_delays
         self.is_moving = True
         self.is_paused = False  # 暂停状态
-        self.is_screen = False  # 窗口捕抓状态
+        self.is_screen = False  # 窗口捕获状态
         self.is_idle_playing = False
         self.idle_allows_move = False
         self.moving_right = True  # 当前移动方向
@@ -201,10 +209,12 @@ class DesktopGif:
         self._drag_animating = False  # 拖动时是否在播放动画
         
         # 程序运行使用
-        self.old_screen = False # 窗口捕抓状态对比用
-        self.screen_anim = None # 窗口捕抓动画ID
+        self.old_screen = False # 窗口捕获状态对比用
+        self.screen_anim = None # 窗口贴靠动画ID
         self.paused_anim = None # 暂停动画ID
-
+        self._window_check_counter = 0  # 窗口检测帧计数
+        self._cached_window_rect = None  # 缓存的窗口矩形
+        
         self.label = tk.Label(root, bg=TRANSPARENT_COLOR, bd=0)
         self.label.pack()
 
@@ -673,15 +683,25 @@ class DesktopGif:
         self.current_delays = self.move_delays
         self.frame_index = 0
 
-    # 获取目前窗口数据
-    def get_window_rect_by_title(self,title_keyword):
+    # 获取目前激活窗口数据
+    def get_window_rect_by_title(self):
         hwnd = win32gui.GetForegroundWindow()
         if not hwnd:
             return None
+        # 判断窗口是否有效且可见
         if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
-            text = win32gui.GetWindowText(hwnd)
-            if title_keyword.lower() in text.lower():
-                return win32gui.GetWindowRect(hwnd)
+            class_name = win32gui.GetClassName(hwnd)
+            window_name = win32gui.GetWindowText(hwnd)
+            # 判断窗口是否需要捕获
+            if class_name.lower() in self.snap_class_name_lower or any(name in window_name.lower() for name in self.snap_window_name):
+                try:
+                    # 判断是否窗口化
+                    placement = win32gui.GetWindowPlacement(hwnd)
+                    show_cmd = placement[1]
+                    if show_cmd is not win32con.SW_SHOWMINIMIZED and show_cmd is not win32con.SW_SHOWMAXIMIZED:
+                        return win32gui.GetWindowRect(hwnd)
+                except Exception:
+                    return None
         return None
 
     # ============ 运动系统方法 ============
@@ -782,14 +802,29 @@ class DesktopGif:
 
     def move(self):
         """运动状态机主循环（性能优化版）"""
-        # 暂停时停止所有运动
+        # 拖动时停止自动运动
+        if self.dragging:
+            self.root.after(50, self.move)
+            return
+
+        # 暂停时停止所有运动并切换对应功能
         if self.is_paused:
+            self.root.after(100, self.move)
             if self.window_snap:
                 # 判断是否特定程序
-                rect = self.get_window_rect_by_title("鸣潮")
+                # 带间隔检测优化，每10帧约500ms检测一次
+                self._window_check_counter += 1
+                if self._window_check_counter >= 10:
+                    self._window_check_counter = 0
+                    self._cached_window_rect = self.get_window_rect_by_title()
+                rect = self._cached_window_rect
                 if rect:
+                    # 记录窗口贴靠前位置
+                    if not self.is_screen:
+                        self.paused_x = self.x
+                        self.paused_y = self.y
                     left, top, right, bottom = rect
-                    pet_x = right - self.w # 紧贴右上角
+                    pet_x = right - self.w # 贴靠右上角
                     pet_y = top - self.h + 5 # 趴在顶部
                     # 检查生成窗口范围
                     if pet_x > self.screen_x and pet_x < self.screen_w - self.w and pet_y > self.screen_y and pet_y < self.screen_h - self.h:
@@ -800,14 +835,11 @@ class DesktopGif:
                 else:
                     self.is_screen = False
                 if self.old_screen != self.is_screen:
+                    # 回到窗口贴靠前位置
+                    if not self.is_screen:
+                        self.root.geometry(f"+{int(self.paused_x)}+{int(self.paused_y)}")
                     self.old_screen = self.is_screen
                     self.paused()
-            self.root.after(100, self.move)
-            return
-
-        # 拖动时停止自动运动
-        if self.dragging:
-            self.root.after(50, self.move)
             return
             
         # ============ 随机停下休息（游荡模式专属） ============
