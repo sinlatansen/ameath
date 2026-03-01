@@ -20,7 +20,7 @@ def create_music_tab(settings_window, parent):
 
     # 创建内嵌音乐播放器（使用统一风格）
     settings_window.music_player_embedded = MusicPlayerEmbedded(
-        frame, settings_window.colors, settings_window.fonts
+        frame, settings_window.colors, settings_window.fonts, settings_window
     )
 
     return frame
@@ -29,10 +29,11 @@ def create_music_tab(settings_window, parent):
 class MusicPlayerEmbedded:
     """内嵌音乐播放器 - 歌姬偶像风格"""
 
-    def __init__(self, parent, colors, fonts):
+    def __init__(self, parent, colors, fonts, settings_window=None):
         self.parent = parent
         self.colors = colors
         self.fonts = fonts
+        self.settings_window = settings_window
         self.config = load_config()
 
         # 创建实际的播放器核心（使用 MusicPlayer 的音频功能）
@@ -393,6 +394,10 @@ class MusicPlayerEmbedded:
         config = load_config()
         config["music_volume"] = volume
         save_config(config)
+        
+        # 同步到个性化界面的滑块
+        if self.settings_window and hasattr(self.settings_window, 'music_volume_var'):
+            self.settings_window.music_volume_var.set(volume)
 
     def _on_double_click(self, event):
         """双击播放"""
