@@ -11,7 +11,7 @@ from .config import load_config, save_config
 from .utils import resource_path
 import time
 
-MUSIC_DIR = "sound/music"
+MUSIC_DIR = os.path.join(os.path.expanduser("~"), "ameath_songs")
 
 
 class MusicPlayer:
@@ -186,7 +186,25 @@ class MusicPlayer:
             return
 
         try:
-            music_path = resource_path(MUSIC_DIR)
+            music_path = MUSIC_DIR
+            
+            # 如果目录不存在，创建并首次运行复制自带歌曲
+            if not os.path.exists(music_path):
+                os.makedirs(music_path, exist_ok=True)
+                
+                # 首次运行，复制自带歌曲
+                bundled_music = resource_path("sound/music")
+                if os.path.exists(bundled_music):
+                    import shutil
+                    for file in os.listdir(bundled_music):
+                        if file.lower().endswith((".wav", ".mp3")):
+                            src = os.path.join(bundled_music, file)
+                            dst = os.path.join(music_path, file)
+                            try:
+                                shutil.copy2(src, dst)
+                            except Exception as e:
+                                print(f"复制自带歌曲失败: {e}")
+            
             if os.path.exists(music_path):
                 for file in os.listdir(music_path):
                     if file.lower().endswith((".wav", ".mp3")):
@@ -502,9 +520,9 @@ class MusicPlayer:
         if not files:
             return
 
-        music_path = resource_path(MUSIC_DIR)
+        music_path = MUSIC_DIR
         if not os.path.exists(music_path):
-            os.makedirs(music_path)
+            os.makedirs(music_path, exist_ok=True)
 
         imported_count = 0
         for file in files:
