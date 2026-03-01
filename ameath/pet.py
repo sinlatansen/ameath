@@ -113,7 +113,6 @@ class DesktopGif:
         self.snap_class_name_lower = {name.lower() for name in self.snap_class_name}
         # 捕获窗口的窗口名
         self.snap_window_name = ["鸣潮","微信"]
-        self.snap_window_name_lower = {name.lower() for name in self.snap_window_name}
 
 
         # 获取屏幕
@@ -213,6 +212,8 @@ class DesktopGif:
         self.old_screen = False # 窗口捕获状态对比用
         self.screen_anim = None # 窗口贴靠动画ID
         self.paused_anim = None # 暂停动画ID
+        self._window_check_counter = 0  # 窗口检测帧计数
+        self._cached_window_rect = None  # 缓存的窗口矩形
         
         self.label = tk.Label(root, bg=TRANSPARENT_COLOR, bd=0)
         self.label.pack()
@@ -692,7 +693,7 @@ class DesktopGif:
             class_name = win32gui.GetClassName(hwnd)
             window_name = win32gui.GetWindowText(hwnd)
             # 判断窗口是否需要捕获
-            if class_name.lower() in self.snap_class_name_lower or window_name.strip().lower() in self.snap_window_name_lower:
+            if class_name.lower() in self.snap_class_name_lower or any(name in window_name.lower() for name in self.snap_window_name):
                 try:
                     # 判断是否窗口化
                     placement = win32gui.GetWindowPlacement(hwnd)
@@ -811,7 +812,12 @@ class DesktopGif:
             self.root.after(100, self.move)
             if self.window_snap:
                 # 判断是否特定程序
-                rect = self.get_window_rect_by_title()
+                # 带间隔检测优化，每10帧约500ms检测一次
+                self._window_check_counter += 1
+                if self._window_check_counter >= 10:
+                    self._window_check_counter = 0
+                    self._cached_window_rect = self.get_window_rect_by_title()
+                rect = self._cached_window_rect
                 if rect:
                     # 记录窗口贴靠前位置
                     if not self.is_screen:
