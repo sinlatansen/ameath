@@ -496,6 +496,7 @@ class MusicPlayer:
     def apply_current_volume(self):
         """应用当前音量到正在播放的音频"""
         # 同步到共享变量，确保音频回调读取最新值
+        print(f"[DEBUG] apply_current_volume: setting _shared_music_volume to {self.music_volume}")
         MusicPlayer._shared_music_volume = self.music_volume
 
     def check_and_switch_output_device(self):
@@ -677,6 +678,7 @@ class MusicPlayer:
 
             # 应用音量（0-100%）- 优先使用共享变量确保最新值
             volume_factor = MusicPlayer._shared_music_volume / 100.0
+            print(f"[DEBUG] audio_callback: volume_factor = {volume_factor}")
             outdata[:] = (data * volume_factor).reshape(outdata.shape)
 
         except queue.Empty:

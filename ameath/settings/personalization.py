@@ -758,6 +758,10 @@ def setup_personalization_callbacks(SettingsWindow):
         config = load_config()
         config["music_volume"] = volume
         save_config(config)
+        
+        # 同步到 MusicPlayer 的共享变量，实时调整音量
+        from ..music_player import MusicPlayer
+        MusicPlayer._shared_music_volume = volume
 
     def _on_display_mode_changed(self):
         """显示模式改变回调（固定屏幕/跨屏游荡）"""
