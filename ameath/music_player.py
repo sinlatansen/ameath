@@ -696,9 +696,6 @@ class MusicPlayer:
             chunk_size = int(self.sample_rate * 0.05)
 
             while current < len(self.audio_data) and not self.stop_event.is_set():
-                # 检查输出设备是否变化
-                self.check_and_switch_output_device()
-                
                 if self.pause_event.is_set():
                     self.paused_position = current
                     while self.pause_event.is_set() and not self.stop_event.is_set():
