@@ -50,6 +50,10 @@
 欢迎 fork 仓库或者提交 Issue 和 Pull Request！
 Issue里的需求，如果您打算贡献，请告知我。
 
+## 特别感谢
+
+- 感谢B站up[@\_BLZ\_](https://b23.tv/LOWldqI)提供的gif素材。
+
 ---
 
 *但愿我会让你感到骄傲，但愿我没有让你失望 - Ameath*
