@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
     "total_screen": True,
     "screen_index": DEFAULT_SCREEN_INDEX,
     "scale_index": DEFAULT_SCALE_INDEX,
+    "window_snap": True,
     "transparency_index": DEFAULT_TRANSPARENCY_INDEX,
     "auto_startup": True,
     "click_through": False,
@@ -71,6 +72,9 @@ def _sanitize_config(config):
         DEFAULT_CONFIG["scale_index"],
         min_value=0,
         max_value=len(SCALE_OPTIONS) - 1,
+    )
+    result["window_snap"] = _coerce_bool(
+        config.get("window_snap"), DEFAULT_CONFIG["window_snap"]
     )
     result["transparency_index"] = _coerce_int(
         config.get("transparency_index"),

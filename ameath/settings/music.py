@@ -1,5 +1,6 @@
 """音乐播放器标签页"""
 
+import random
 import tkinter as tk
 
 from ..config import load_config, save_config
@@ -19,7 +20,7 @@ def create_music_tab(settings_window, parent):
 
     # 创建内嵌音乐播放器（使用统一风格）
     settings_window.music_player_embedded = MusicPlayerEmbedded(
-        frame, settings_window.colors, settings_window.fonts
+        frame, settings_window.colors, settings_window.fonts, settings_window
     )
 
     return frame
@@ -28,10 +29,11 @@ def create_music_tab(settings_window, parent):
 class MusicPlayerEmbedded:
     """内嵌音乐播放器 - 歌姬偶像风格"""
 
-    def __init__(self, parent, colors, fonts):
+    def __init__(self, parent, colors, fonts, settings_window=None):
         self.parent = parent
         self.colors = colors
         self.fonts = fonts
+        self.settings_window = settings_window
         self.config = load_config()
 
         # 创建实际的播放器核心（使用 MusicPlayer 的音频功能）
@@ -386,10 +388,16 @@ class MusicPlayerEmbedded:
 
         # 同步到核心播放器，实时调整音量
         self.core_player.music_volume = volume
+        # 调用apply_current_volume同步到共享变量，确保音频回调读取最新值
+        self.core_player.apply_current_volume()
 
         config = load_config()
         config["music_volume"] = volume
         save_config(config)
+        
+        # 同步到个性化界面的滑块
+        if self.settings_window and hasattr(self.settings_window, 'music_volume_var'):
+            self.settings_window.music_volume_var.set(volume)
 
     def _on_double_click(self, event):
         """双击播放"""
@@ -411,8 +419,13 @@ class MusicPlayerEmbedded:
 
     def _play_current(self):
         """播放当前选中的歌曲"""
-        if not self.music_files or self.current_index < 0:
+        if not self.music_files:
             return
+        
+        # 如果没有选中歌曲，随机选择一首
+        if self.current_index < 0:
+            self.current_index = random.randint(0, len(self.music_files) - 1)
+            self._update_listbox()
 
         # 同步当前索引到核心播放器
         self.core_player.current_index = self.current_index

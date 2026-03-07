@@ -758,6 +758,14 @@ def setup_personalization_callbacks(SettingsWindow):
         config = load_config()
         config["music_volume"] = volume
         save_config(config)
+        
+        # 同步到 MusicPlayer 的共享变量，实时调整音量
+        from ..music_player import MusicPlayer
+        MusicPlayer._shared_music_volume = volume
+        
+        # 同步到音乐播放器界面的滑块
+        if hasattr(self, 'music_player_embedded') and self.music_player_embedded:
+            self.music_player_embedded.volume_var.set(volume)
 
     def _on_display_mode_changed(self):
         """显示模式改变回调（固定屏幕/跨屏游荡）"""
@@ -850,3 +858,6 @@ def setup_personalization_callbacks(SettingsWindow):
     SettingsWindow._on_display_priority_changed = _on_display_priority_changed
     SettingsWindow._on_wander_idle_stay_mode_changed = _on_wander_idle_stay_mode_changed
     SettingsWindow._on_instance_count_confirm = _on_instance_count_confirm
+
+
+# TODO: 鸣潮窗口吸附功能的开启与否
