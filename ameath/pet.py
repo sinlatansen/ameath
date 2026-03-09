@@ -64,6 +64,7 @@ from .constants import (
 )
 from .utils import flip_frames, load_gif_frames, resource_path
 from .voice import VoicePlayer
+from . import window_manager
 
 
 class DesktopGif:
@@ -75,6 +76,7 @@ class DesktopGif:
         self.display_priority = 1
         self._hidden_by_fullscreen = False
         self._user_hidden = False  # 用户手动隐藏标志
+        self._attached_to_desktop = False  # 是否已挂载到桌面 WorkerW
 
         # 立即设置无边框，避免闪烁
         root.overrideredirect(True)
@@ -339,6 +341,27 @@ class DesktopGif:
         self._apply_topmost()
 
     def _apply_desktop_only(self):
+        """使用 WorkerW 挂载实现"仅桌面显示" - 支持多显示器"""
+        if self._hidden_by_fullscreen:
+            self.root.deiconify()
+            self._hidden_by_fullscreen = False
+
+        # 检查是否已经挂载到桌面（使用实例变量，避免重复挂载）
+        if not self._attached_to_desktop:
+            # 挂载到桌面 WorkerW
+            window_manager.attach_to_desktop(self.hwnd)
+            # 设置为工具窗口，隐藏任务栏
+            window_manager.make_tool_window(self.hwnd)
+            # 保持点击穿透设置
+            if self.click_through:
+                window_manager.enable_click_through(self.hwnd)
+            # 标记为已挂载
+            self._attached_to_desktop = True
+
+        # 确保不是 topmost，否则 WorkerW 挂载无效
+        self.root.attributes("-topmost", False)
+
+    def _is_desktop_foreground(self):
         if self._hidden_by_fullscreen:
             self.root.deiconify()
             self._hidden_by_fullscreen = False
@@ -426,6 +449,34 @@ class DesktopGif:
         save_config(config)
 
     def set_display_priority(self, mode, persist=True):
+        """设置显示优先级"""
+        # 记录旧模式
+        old_mode = getattr(self, "display_priority", mode)
+        self.display_priority = mode
+        if persist:
+            config = load_config()
+            config["display_priority"] = mode
+            save_config(config)
+        try:
+            # 如果用户手动隐藏，不改变窗口可见性
+            if self._user_hidden:
+                return
+
+            # 如果从桌面模式切换到其他模式，需要先从 WorkerW 分离
+            if old_mode == 3 and mode != 3:
+                window_manager.detach_from_desktop(self.hwnd)
+                self._attached_to_desktop = False
+
+            if self.display_priority == 1:
+                self._apply_topmost()
+            elif self.display_priority == 2:
+                self._apply_fullscreen_hide()
+            else:
+                self._apply_desktop_only()
+        except Exception:
+            pass
+
+    def set_wander_idle_stay_mode(self, mode):
         """设置显示优先级"""
         self.display_priority = mode
         if persist:
