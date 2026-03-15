@@ -936,10 +936,13 @@ class DesktopGif:
             return
 
         # ============ 鼠标位置缓存 ============
-        mx = self.root.winfo_pointerx()
-        my = self.root.winfo_pointery()
-        mouse_moved = (mx, my) != getattr(self, "_last_mouse", (mx, my))
-        self._last_mouse = (mx, my)
+        # 仅在跟随模式启用时查询鼠标位置，避免高频轮询干扰其他应用（如MATLAB）
+        mx = my = mouse_moved = None
+        if self.follow_mouse:
+            mx = self.root.winfo_pointerx()
+            my = self.root.winfo_pointery()
+            mouse_moved = (mx, my) != getattr(self, "_last_mouse", (mx, my))
+            self._last_mouse = (mx, my)
 
         # ============ 计算到目标的距离 ============
         dx = self.target_x - self.x

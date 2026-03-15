@@ -6,6 +6,8 @@ dist/
 wheels/
 *.egg-info
 
+.sisyphus/**
+
 # Virtual environments
 .venv
 
