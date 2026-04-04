@@ -278,22 +278,33 @@ class DesktopGif:
 
         # 绑定右键事件
         self.label.bind("<Button-3>", self.handle_right_click)
+        
+        # 快捷菜单实例（延迟创建）
+        self._quick_menu = None
 
     def handle_right_click(self, event):
-        """处理右键点击事件 - 打开设置窗口音乐标签页"""
-        config = load_config()
-        music_enabled = config.get("music_enabled", False)
-
-        if music_enabled:
-            # 打开设置窗口并切换到音乐标签页
-            from .settings import show_settings_dialog
-            from .utils import get_version
-
-            # 使用 manager（PetManager）而不是 app（Icon）
-            manager = getattr(self, "manager", None)
-            if manager:
-                show_settings_dialog(
-                    self.root, manager, get_version(), open_music_tab=True
+        """
+        处理右键点击事件 - 显示快捷菜单
+        
+        在小爱旁边显示一个简洁的快捷菜单，包含常用功能。
+        """
+        from .quick_menu import show_quick_menu
+        from .utils import get_version
+        
+        # 获取管理器引用
+        manager = getattr(self, "manager", None)
+        if manager:
+            # 如果已有菜单显示中，先关闭
+            if self._quick_menu and self._quick_menu.is_visible():
+                self._quick_menu._on_close()
+            else:
+                # 获取托盘图标引用（用于同步更新托盘菜单）
+                tray_icon = getattr(self, "app", None)
+                # 显示快捷菜单（在鼠标位置附近）
+                self._quick_menu = show_quick_menu(
+                    self, manager, get_version(),
+                    event.x_root, event.y_root,
+                    tray_icon=tray_icon
                 )
 
     def ensure_visibility(self):
@@ -535,10 +546,16 @@ class DesktopGif:
         self.is_paused = not self.is_paused
         if self.is_paused:
             # 暂停：停止移动，切换到暂停模式
+            self.is_moving = False
+            self.is_idle_playing = False
+            self.idle_allows_move = False
             self.paused()
         else:
             # 继续：恢复移动
             self.is_moving = True
+            self.is_idle_playing = False
+            self.idle_allows_move = False
+            self.motion_state = MOTION_WANDER
             self.current_frames = (
                 self.move_frames if self.moving_right else self.move_frames_left
             )
