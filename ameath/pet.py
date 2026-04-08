@@ -174,9 +174,9 @@ class DesktopGif:
             frames, delays, _ = load_gif_frames(idle_path, self.scale)
             self.idle_gifs.append((frames, delays))
 
-        # 加载screen1~4.gif
+        # 加载screen1~7.gif
         self.screen_gifs = []
-        for i in range(1, 5):
+        for i in range(1, 8):
             screen_path = resource_path(os.path.join(GIF_DIR, f"screen{i}.gif"))
             frames, delays, _ = load_gif_frames(screen_path, self.scale)
             self.screen_gifs.append((frames, delays))
@@ -553,7 +553,7 @@ class DesktopGif:
             self.idle_gifs.append((self.move_frames, self.move_delays))
 
         self.screen_gifs = []
-        for i in range(1, 5):
+        for i in range(1, 8):
             screen_path = resource_path(os.path.join(GIF_DIR, f"screen{i}.gif"))
             result = load_gif_frames(screen_path, self.scale)
             if result[0]:
