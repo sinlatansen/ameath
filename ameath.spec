@@ -31,6 +31,7 @@ a = Analysis(
     binaries=[],
     datas=[('gifs', 'gifs'), ('sound', 'sound'), ('fonts', 'fonts'), ('version.txt', '.'), ('git_hash.txt', '.')],
     hiddenimports=[
+        'secrets',
         'PIL._tkinter',
         'ameath',
         'ameath.constants',
