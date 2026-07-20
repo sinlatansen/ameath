@@ -1,0 +1,99 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  format:
+    name: Lint format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Run shfmt, shellcheck, checkbashisms
+        uses: luizm/action-sh-checker@v0.10.0
+        with:
+          sh_checker_shfmt_disable: true
+          sh_checker_comment: true
+          sh_checker_checkbashisms_enable: true
+
+      - name: Run treefmt
+        run: |
+          nix develop -c treefmt \
+            --allow-missing-formatter \
+            --fail-on-change \
+            --no-cache \
+            --formatters prettier \
+            --formatters clang-format \
+            --formatters nix \
+            --formatters shell \
+            --formatters hcl \
+            --formatters toml \
+            --formatters sql-check
+
+  commit:
+    name: Lint commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run commitlint
+        uses: wagoid/commitlint-github-action@v6.2.1
+
+  codespell:
+    name: Codespell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: codespell-project/codespell-problem-matcher@v1
+
+      - name: Codespell
+        uses: codespell-project/actions-codespell@v2
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix ui
+
+      - name: Build frontend
+        run: npm run build --prefix ui
+
+      - name: Run clippy
+        run: nix develop -c cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix ui
+
+      - name: Build frontend
+        run: npm run build --prefix ui
+
+      - name: Run workspace tests
+        run: nix develop -c cargo nextest-all
