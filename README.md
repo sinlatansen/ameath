@@ -1,59 +1,70 @@
-# Ameath - 桌面宠物
+# Fleet Snowfluff (飞行雪绒)
 
-*"爱弥斯，拉贝尔学部的隧者适格者！不过，那都是生前的事了。现在的我，是电子幽灵哦~"*
+A cross-platform desktop pet, rewritten in Rust from the original Python
+project [Ameath](https://gitee.com/lzy-buaa-jdi/ameath). Fleet Snowfluff
+wanders your screen, follows your cursor, and reacts when you drag it —
+running natively on **Windows**, **macOS**, and **Ubuntu**.
 
-<p align="center">
-  <img src="gifs/ameath.gif" alt="Ameath 桌面宠物" width="50%">
-  </br>
-  <img src="https://img.shields.io/static/v1?label=Bilibili&message=-fugu-&color=00A1D6&style=flat-square&logo=bilibili&logoColor=white" alt="-fugu- B站主页">
-</p>
+> **Status:** this repository is mid-rewrite (targeting `v0.1.0`). The
+> original Python app still lives at [`legacy/`](legacy/) and remains
+> runnable as the behavior reference while the Rust port is built. See
+> [`openspec/changes/`](openspec/changes/) for the active change proposal,
+> design, and specs.
 
-## ✨ 特色功能
+## Features (target for v0.1.0)
 
-- 🐾 **智能运动系统** - 状态机控制（游荡/跟随/好奇/休息），模拟真实宠物的行为模式
-- 🖱️ **鼠标跟随** - 智能距离判断，远距离主动跟随，近距离好奇观察
-- 💤 **随机休息** - 随机停下休息，模拟真实宠物的作息习惯
-- 🌀 **惯性移动** - 流畅自然的运动轨迹，告别生硬的移动
-- 🎭 **多态动画** - 移动、待机、拖动等多种动画状态
-- 📏 **自由缩放** - 9档缩放（0.3x ~ 1.9x），适配各种屏幕
-- 👻 **透明度调节** - 8档透明度（30% ~ 100%），随心情调整
-- 👆 **鼠标穿透** - 默认开启，不遮挡日常操作
-- 🔄 **开机自启** - 支持开机自动运行（exe移动后自动修复路径）
-- 🖥️ **系统托盘** - 完整的右键菜单控制
-- 🎯 **高DPI适配** - 完美支持高分屏，清晰显示
-- 🍃 **轻量级** - 仅依赖 Pillow 和 pystray，无其他冗余依赖
-- 📦 **即开即用** - 提供打包好的exe版本，无需配置Python环境
+- Motion state machine — wander, follow-mouse, curious, and rest states with
+  inertia-based, non-robotic movement
+- Draggable with a voice reaction; multiple simultaneous instances (up to 80)
+- Adjustable scale, opacity, and display priority (always-on-top, normal
+  with auto-hide over fullscreen apps, or desktop-only)
+- Click-through, multi-monitor placement, system tray, and a native
+  right-click quick menu
+- UI in Traditional Chinese, Simplified Chinese, English, Japanese, and
+  Korean, detected from the system locale
+- Switchable voice-line language (Chinese included at launch; Japanese,
+  English, and Korean packs are supported but not yet recorded), plus a
+  volume control
+- Signed auto-updates via GitHub Releases
 
-## 📦 安装方式
+The music player from the original Ameath app has been intentionally
+dropped from this rewrite.
 
-📹 **介绍视频**：[【我制作了飞行雪绒可爱桌宠！win平台，低占用】](https://www.bilibili.com/video/BV12rcMznEcG)
+## Development
 
-把exe文件放到自己熟悉的任意地方，运行后没找到系统托盘的话，请检查win系统托盘折叠菜单。
-自v1.1.5开始就支持自动无感更新，不再需要手动前往各渠道下载。
-本仓库主线正式版本支持win10/win11平台，win7用户请前往夸克网盘/百度网盘下载win7版本。
+Once the Rust workspace is scaffolded (see the change proposal for
+progress):
 
-### Release 下载
+```sh
+just dev    # run the app
+just build  # produce a release build
+just test   # run the core crate's test suite
+```
 
-前往 [Gitee Release](https://gitee.com/lzy-buaa-jdi/ameath/releases) 下载最新版本的打包程序。
+A [Nix devshell](flake.nix) provides the Rust toolchain and formatters; run
+`nix develop` or let `direnv` load it automatically.
 
-### 夸克网盘
+## Origins & Attribution
 
-链接：<https://pan.quark.cn/s/9d90dc358cb1?pwd=9HQZ>  
-提取码：`9HQZ`
+Fleet Snowfluff is a Rust rewrite of **Ameath**, a fan-made desktop pet
+originally created by [**-fugu-**](https://space.bilibili.com/84508966).
+All character art, animations, and voice clips bundled in this repository
+originate from that project. The Rust rewrite (architecture, rendering,
+and platform support) is maintained by
+[kagetsuki1997](https://github.com/kagetsuki1997).
 
-### 百度网盘
+The pet character and its assets belong to **Wuthering Waves** by
+**Kuro Games**. This is an unofficial fan project; it is not affiliated
+with or endorsed by Kuro Games. Assets will be removed promptly upon any
+legitimate infringement request.
 
-链接：https://pan.baidu.com/s/5HXkAlr2SHP_COt3j25v2ng 
+## License
 
-## 🤝 贡献
+Code is licensed under the [MIT License](LICENSE). Bundled character
+assets (GIFs, voice clips) are excluded from that grant — see the
+disclaimer above.
 
-欢迎 fork 仓库或者提交 Issue 和 Pull Request！
-Issue里的需求，如果您打算贡献，请告知我。
+## Contributing
 
-## 特别感谢
-
-- 感谢B站up[@\_BLZ\_](https://b23.tv/LOWldqI)提供的gif素材。
-
----
-
-*但愿我会让你感到骄傲，但愿我没有让你失望 - Ameath*
+Forks, issues, and pull requests are welcome. If you plan to work on an
+open issue, please say so first to avoid duplicate effort.
