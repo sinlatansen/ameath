@@ -7,4 +7,7 @@ repository.workspace = true
 description          = "Pure behavior engine, config, and locale logic for Fleet Snowfluff"
 
 [dependencies]
-rand = { workspace = true }
+rand       = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+sys-locale = { workspace = true }
