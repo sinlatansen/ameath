@@ -21,3 +21,9 @@ serde            = { workspace = true }
 serde_json       = { workspace = true }
 tauri            = { workspace = true }
 tauri-plugin-log = { workspace = true }
+wgpu             = { workspace = true }
+image            = { workspace = true }
+pollster         = { workspace = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
