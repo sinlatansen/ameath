@@ -1,0 +1,76 @@
+[formatter.rust]
+command  = "cargo"
+options  = ["fmt", "--all", "--verbose", "--"]
+includes = ["*.rs"]
+
+[formatter.clang-format]
+command  = "clang-format"
+options  = ["-i", "--Werror", "--verbose"]
+includes = ["*.proto"]
+
+[formatter.prettier]
+command = "prettier"
+options = ["--write"]
+includes = [
+  "*.css",
+  "*.html",
+  "*.js",
+  "*.json",
+  "*.jsx",
+  "*.md",
+  "*.mdx",
+  "*.scss",
+  "*.ts",
+  "*.yaml",
+]
+excludes = ["crates/notification/templates/**", "third_party/**"]
+
+[formatter.toml]
+command  = "taplo"
+options  = ["format", "$@"]
+includes = ["*.toml"]
+
+[formatter.nix]
+command  = "nixfmt"
+includes = ["*.nix"]
+
+[formatter.shell]
+command = "sh"
+options = ["-eucx", """
+# Perform static analysis tool
+shellcheck --external-sources --source-path=SCRIPTDIR "$@"
+
+# Run formatter
+shfmt --write --simplify --case-indent --indent 4 "$@"
+    """, "--"]
+includes = ["*.sh"]
+
+[formatter.hcl]
+command  = "hclfmt"
+options  = ["-w"]
+includes = ["*.hcl"]
+
+[formatter.sql]
+command = "sleek"
+options = [
+  "--indent-spaces=4",
+  "--uppercase=true",
+  "--lines-between-queries=2",
+  "--trailing-newline=true",
+]
+includes = ["*.sql"]
+
+[formatter.sql-check]
+command = "sh"
+options = [
+  "-eucx",
+  """
+# Run formatter
+for i in "$@"
+do
+echo "Check $i format."
+sleek --check --indent-spaces=4 --uppercase=true --lines-between-queries=2 --trailing-newline=true "$i"
+done
+""",
+]
+includes = ["*.sql"]
