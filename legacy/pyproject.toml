@@ -5,14 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pillow>=12.1.0",
-    "pystray>=0.19.0",
-    "screeninfo>=0.6.0",
-    "pyinstaller>=6.0",
-    "numpy>=2.4.2",
-    "sounddevice>=0.5.5",
-    "soundfile>=0.13.1",
-    "pywin32>=311",
+  "pillow>=12.1.0",
+  "pystray>=0.19.0",
+  "screeninfo>=0.6.0",
+  "pyinstaller>=6.0",
+  "numpy>=2.4.2",
+  "sounddevice>=0.5.5",
+  "soundfile>=0.13.1",
+  "pywin32>=311",
 ]
 
 [tool.black]
