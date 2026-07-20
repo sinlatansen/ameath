@@ -10,8 +10,8 @@ def _load_zpix_font():
         import ctypes
         import os
 
-        project_dir = Path(__file__).parent.parent
-        font_path = project_dir / "fonts" / "zpix.ttf"
+        repo_root = Path(__file__).parent.parent.parent
+        font_path = repo_root / "assets" / "fonts" / "zpix.ttf"
 
         if not font_path.exists():
             return False

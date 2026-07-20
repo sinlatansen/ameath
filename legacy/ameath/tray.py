@@ -12,7 +12,7 @@ def create_tray(app, version):
 
     # 创建托盘图标（使用ameath.gif）
     try:
-        icon_gif = Image.open(resource_path("gifs/ameath.gif"))
+        icon_gif = Image.open(resource_path("../assets/gifs/ameath.gif"))
         icon_gif.seek(0)  # 取第一帧
         icon_image = icon_gif.convert("RGBA")
         icon_image = icon_image.resize((64, 64), Image.Resampling.BOX)

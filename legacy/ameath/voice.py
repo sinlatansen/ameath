@@ -119,7 +119,7 @@ class VoicePlayer:
         self._stop_event = threading.Event()
 
         # 加载语音文件
-        voice_dir = resource_path("sound/voice")
+        voice_dir = resource_path("../assets/voice/zh")
         if os.path.exists(voice_dir):
             for file in os.listdir(voice_dir):
                 if file.lower().endswith(".wav"):

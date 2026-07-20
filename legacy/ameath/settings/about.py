@@ -27,7 +27,7 @@ def create_about_tab(settings_window, parent):
 
     # 显示 ameath.gif
     try:
-        gif_image = Image.open(resource_path("gifs/ameath.gif"))
+        gif_image = Image.open(resource_path("../assets/gifs/ameath.gif"))
         gif_image = gif_image.resize((100, 100), Image.Resampling.LANCZOS)
         gif_photo = ImageTk.PhotoImage(gif_image)
         gif_label = tk.Label(

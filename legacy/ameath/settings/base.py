@@ -141,11 +141,11 @@ class SettingsWindow:
 
         # 设置窗口图标
         try:
-            icon_path = resource_path("gifs/ameath.ico")
+            icon_path = resource_path("../assets/gifs/ameath.ico")
             if os.path.exists(icon_path):
                 self.window.iconbitmap(icon_path)
             # 使用 PNG 图标获得更好的清晰度
-            png_path = resource_path("gifs/ameath_content.png")
+            png_path = resource_path("../assets/gifs/ameath_content.png")
             if os.path.exists(png_path):
                 from PIL import Image, ImageTk
                 img = Image.open(png_path)
