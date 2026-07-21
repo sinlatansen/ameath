@@ -21,6 +21,7 @@
   "personalization.display_priority.desktop_only": "Desktop Only",
   "personalization.wander_stay_mode_label": "Wander Idle Behavior",
   "personalization.wander_stay_mode.stationary": "Stay in Place",
+  "personalization.wander_stay_mode.probabilistic": "Balanced (Sometimes Pauses)",
   "personalization.wander_stay_mode.always_move": "Keep Moving",
   "personalization.monitor_label": "Monitor",
   "personalization.monitor.all_screens": "All Screens",

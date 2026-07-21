@@ -21,6 +21,7 @@
   "personalization.display_priority.desktop_only": "바탕화면 전용",
   "personalization.wander_stay_mode_label": "배회 중 대기 동작",
   "personalization.wander_stay_mode.stationary": "제자리에 머무르기",
+  "personalization.wander_stay_mode.probabilistic": "균형 (가끔 멈춤)",
   "personalization.wander_stay_mode.always_move": "계속 움직이기",
   "personalization.monitor_label": "모니터",
   "personalization.monitor.all_screens": "모든 화면",

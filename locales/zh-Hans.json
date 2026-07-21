@@ -21,6 +21,7 @@
   "personalization.display_priority.desktop_only": "仅桌面层",
   "personalization.wander_stay_mode_label": "游荡时的静止行为",
   "personalization.wander_stay_mode.stationary": "原地停留",
+  "personalization.wander_stay_mode.probabilistic": "均衡（偶尔停留）",
   "personalization.wander_stay_mode.always_move": "持续移动",
   "personalization.monitor_label": "显示器",
   "personalization.monitor.all_screens": "所有屏幕",

@@ -1,17 +1,91 @@
 :root {
   color-scheme: light dark;
   font-family: system-ui, sans-serif;
+  font-size: 14px;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  justify-content: center;
   min-height: 100vh;
 }
 
-main {
-  text-align: center;
-  padding: 2rem;
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.settings-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  flex-shrink: 0;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+  border-bottom-color: currentColor;
+  font-weight: 600;
+}
+
+.panel {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.panel.active {
+  display: flex;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.field-row span {
+  flex-shrink: 0;
+}
+
+.field-row select,
+.field-row input[type="number"] {
+  min-width: 8rem;
+}
+
+.field-row input[type="range"] {
+  flex: 1;
+}
+
+.panel[data-panel="about"] p,
+.panel[data-panel="about"] h3 {
+  margin: 0;
+}
+
+.panel[data-panel="about"] .version {
+  font-weight: 600;
+}
+
+.panel[data-panel="about"] .disclaimer {
+  opacity: 0.75;
+  font-size: 0.9em;
 }

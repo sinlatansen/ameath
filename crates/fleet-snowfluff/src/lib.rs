@@ -36,6 +36,7 @@ pub fn run() {
             commands::set_voice_volume,
             commands::set_voice_language,
             commands::set_auto_startup,
+            commands::set_skip_updates,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

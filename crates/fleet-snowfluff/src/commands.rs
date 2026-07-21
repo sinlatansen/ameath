@@ -208,3 +208,12 @@ pub fn set_voice_language(
 pub fn set_auto_startup(enabled: bool, app: AppHandle, config: State<Mutex<Config>>) {
     apply_and_save(&app, &config, |c| c.auto_startup = enabled);
 }
+
+/// Persists skip-all-updates (auto-update spec's opt-out). The rest of
+/// the update tab (manual check, current/latest version, install,
+/// skip-this-version) needs `tauri-plugin-updater` wired up, which is
+/// task group 14 -- this one control doesn't depend on it.
+#[tauri::command]
+pub fn set_skip_updates(enabled: bool, app: AppHandle, config: State<Mutex<Config>>) {
+    apply_and_save(&app, &config, |c| c.skip_updates = enabled);
+}

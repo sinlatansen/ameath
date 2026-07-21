@@ -19,8 +19,9 @@ pub fn open_or_focus_settings(app: &AppHandle, title: &str) {
     let result =
         WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
             .title(title)
-            .inner_size(480.0, 360.0)
+            .inner_size(480.0, 560.0)
             .resizable(true)
+            .center()
             .build();
 
     if let Err(err) = result {

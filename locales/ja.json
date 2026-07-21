@@ -21,6 +21,7 @@
   "personalization.display_priority.desktop_only": "デスクトップのみ",
   "personalization.wander_stay_mode_label": "徘徊時の待機動作",
   "personalization.wander_stay_mode.stationary": "その場に留まる",
+  "personalization.wander_stay_mode.probabilistic": "バランス（時々停止）",
   "personalization.wander_stay_mode.always_move": "動き続ける",
   "personalization.monitor_label": "モニター",
   "personalization.monitor.all_screens": "すべての画面",
