@@ -6,7 +6,8 @@
 use std::{sync::Arc, time::Instant};
 
 use fleet_snowfluff_core::{
-    Bounds, MotionSettings, PauseAnimEvent, PauseAnimationScheduler, PetSize, PetState, TickInput,
+    compute_dock_position, Bounds, ForeignWindowRect, MotionSettings, PauseAnimEvent,
+    PauseAnimationScheduler, PetSize, PetState, TickInput,
 };
 use rand::Rng;
 
@@ -22,6 +23,11 @@ pub struct PetWindow {
     animations: Arc<AnimationSet>,
     pause_scheduler: PauseAnimationScheduler,
     pub paused: bool,
+    /// Whether this pet is currently snapped to a foreground window
+    /// (task 6.8). Tracked so undocking can restore `state.x/y`, which
+    /// is never written while paused otherwise -- it's already the
+    /// pre-dock resting position, no separate save needed.
+    docked: bool,
     pub dragging: bool,
     drag_offset: (f64, f64),
     cue: AnimationCue,
@@ -71,6 +77,7 @@ impl PetWindow {
             animations,
             pause_scheduler: PauseAnimationScheduler::new(rng),
             paused: false,
+            docked: false,
             dragging: false,
             drag_offset: (0.0, 0.0),
             cue: AnimationCue::Move,
@@ -123,6 +130,44 @@ impl PetWindow {
             self.window.show().ok();
         } else {
             self.window.hide().ok();
+        }
+    }
+
+    /// Applies pause-mode window-snap docking (task 6.8): docks to the
+    /// top-right corner of `window` if it's eligible and the resulting
+    /// position fits on screen (`compute_dock_position`), otherwise
+    /// releases back to the pre-dock resting position (`state.x/y`,
+    /// which docking itself never touches). No-op while not paused.
+    /// The caller (manager) is responsible for throttling how often
+    /// `window` is refreshed, since producing it is an OS query.
+    pub fn apply_dock(
+        &mut self,
+        gpu: &GpuContext,
+        bounds: Bounds,
+        window: Option<ForeignWindowRect>,
+    ) {
+        if !self.paused {
+            return;
+        }
+        let size =
+            self.size_for(self.animations.move_right.width, self.animations.move_right.height);
+        match compute_dock_position(window, bounds, size) {
+            Some((x, y)) => {
+                self.docked = true;
+                self.apply_window_size(gpu);
+                self.window
+                    .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
+                    .ok();
+            }
+            None if self.docked => {
+                self.docked = false;
+                self.apply_window_size(gpu);
+                let (x, y) = (self.state.x.round(), self.state.y.round());
+                self.window
+                    .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
+                    .ok();
+            }
+            None => {}
         }
     }
 

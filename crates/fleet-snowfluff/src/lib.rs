@@ -36,6 +36,7 @@ pub fn run() {
             pet_manager.set_voice_enabled(default_config.voice_enabled);
             pet_manager.set_voice_volume_percent(default_config.voice_volume);
             pet_manager.set_display_priority(default_config.display_priority);
+            pet_manager.set_window_snap(default_config.window_snap);
             app.manage(Mutex::new(pet_manager));
 
             // Same background-thread + run_on_main_thread pattern proven

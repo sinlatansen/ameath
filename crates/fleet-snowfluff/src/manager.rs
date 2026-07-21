@@ -98,6 +98,9 @@ pub struct PetManager {
     pub scale: f64,
     pub opacity: f32,
     pub paused: bool,
+    /// Whether paused pets dock to the current foreground window (task
+    /// 6.8, D15). Only wired up on macOS so far (7.2/9.2 remain).
+    window_snap: bool,
     click_through: bool,
     /// 1 = topmost, 2 = normal + fullscreen-hide, 3 = desktop-only.
     /// Platform layering (tasks 7/8/9) applies the actual OS behavior;
@@ -146,6 +149,7 @@ impl PetManager {
             scale: 1.0,
             opacity: 1.0,
             paused: false,
+            window_snap: true,
             click_through: false,
             display_priority: 1,
             rng: StdRng::from_os_rng(),
@@ -275,6 +279,10 @@ impl PetManager {
         }
     }
 
+    pub fn window_snap(&self) -> bool { self.window_snap }
+
+    pub fn set_window_snap(&mut self, enable: bool) { self.window_snap = enable; }
+
     pub fn click_through(&self) -> bool { self.click_through }
 
     /// Toggles real OS-level click-through (`set_ignore_cursor_events`)
@@ -383,12 +391,29 @@ impl PetManager {
             }
         }
 
+        // Pause-mode window-snap docking (task 6.8): re-querying the
+        // foreground window is an OS call, so it rides the same ~1s
+        // throttle as the fullscreen check above rather than running
+        // every ~30ms tick. Only macOS has a foreground-window query
+        // wired up so far (7.2/9.2 will add the others at this same
+        // call site).
+        #[cfg(target_os = "macos")]
+        let dock_window = if self.window_snap && log_positions {
+            crate::platform::macos::foreground_window().map(|w| w.rect)
+        } else {
+            None
+        };
+
         for (idx, pet) in self.pets.iter_mut().enumerate() {
             if Some(idx) == self.drag_owner {
                 pet.drag_to(cursor);
                 pet.apply_drag_position(gpu);
             } else {
                 pet.tick(gpu, self.bounds, follow_target, self.settings, dt_ms, &mut self.rng);
+                #[cfg(target_os = "macos")]
+                if self.window_snap && log_positions && pet.paused {
+                    pet.apply_dock(gpu, self.bounds, dock_window);
+                }
             }
             if log_positions {
                 log::debug!("pet {idx}: ({:.1}, {:.1})", pet.state.x, pet.state.y);

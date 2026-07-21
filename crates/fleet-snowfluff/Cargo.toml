@@ -16,8 +16,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { workspace = true }
 
 [dependencies]
-fleet-snowfluff-core = { path = "../fleet-snowfluff-core" }
 device_query         = { workspace = true }
+fleet-snowfluff-core = { path = "../fleet-snowfluff-core" }
 image                = { workspace = true }
 log                  = { workspace = true }
 pollster             = { workspace = true }
