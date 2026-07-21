@@ -5,7 +5,9 @@
   "identifier": "io.github.kagetsuki1997.fleet-snowfluff",
   "build": {
     "frontendDist": "../../ui/dist",
-    "devUrl": "http://localhost:1420"
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm --prefix ../../ui run dev",
+    "beforeBuildCommand": "npm --prefix ../../ui run build"
   },
   "app": {
     "macOSPrivateApi": true,
