@@ -9,6 +9,7 @@ pub mod platform;
 pub mod quick_menu;
 pub mod settings_window;
 pub mod tray;
+pub mod updater;
 pub mod voice;
 
 use std::{sync::Mutex, time::Duration};
@@ -21,6 +22,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::locale_dictionary,
             commands::get_personalization,
@@ -38,6 +40,9 @@ pub fn run() {
             commands::set_voice_language,
             commands::set_auto_startup,
             commands::set_skip_updates,
+            commands::set_skip_version,
+            commands::check_for_update,
+            commands::install_update,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -83,7 +88,9 @@ pub fn run() {
 
             app.manage(Mutex::new(pet_manager));
             app.manage(Mutex::new(config));
+            app.manage(Mutex::<Option<tauri_plugin_updater::Update>>::new(None));
             tray::build(&app_handle)?;
+            updater::spawn_startup_check(app_handle.clone());
 
             // Same background-thread + run_on_main_thread pattern proven
             // in examples/transparent_gif.rs (design.md D14): Tauri's

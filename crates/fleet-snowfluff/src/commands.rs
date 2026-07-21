@@ -216,11 +216,56 @@ pub fn set_auto_startup(enabled: bool, app: AppHandle, config: State<Mutex<Confi
     apply_and_save(&app, &config, |c| c.auto_startup = enabled);
 }
 
-/// Persists skip-all-updates (auto-update spec's opt-out). The rest of
-/// the update tab (manual check, current/latest version, install,
-/// skip-this-version) needs `tauri-plugin-updater` wired up, which is
-/// task group 14 -- this one control doesn't depend on it.
+/// Persists skip-all-updates (auto-update spec's opt-out).
 #[tauri::command]
 pub fn set_skip_updates(enabled: bool, app: AppHandle, config: State<Mutex<Config>>) {
     apply_and_save(&app, &config, |c| c.skip_updates = enabled);
+}
+
+/// Persists skip-this-version: the startup check (14.2) won't prompt
+/// again for this specific version, but manual checks and other
+/// versions are unaffected.
+#[tauri::command]
+pub fn set_skip_version(version: String, app: AppHandle, config: State<Mutex<Config>>) {
+    apply_and_save(&app, &config, |c| c.skip_version = Some(version));
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub body: Option<String>,
+}
+
+/// Manual "Check for Updates" (always available regardless of
+/// skip-all-updates, per the auto-update spec). Stashes the found
+/// `Update` in the same state the startup check (updater.rs) uses, so
+/// a later `install_update` call -- whichever path found it -- has
+/// something to install.
+#[tauri::command]
+pub async fn check_for_update(
+    app: AppHandle,
+    pending: State<'_, Mutex<Option<tauri_plugin_updater::Update>>>,
+) -> Result<Option<UpdateInfo>, String> {
+    let found = crate::updater::check(&app).await?;
+    let info = found
+        .as_ref()
+        .map(|update| UpdateInfo { version: update.version.clone(), body: update.body.clone() });
+    *pending.lock().unwrap() = found;
+    Ok(info)
+}
+
+/// Downloads, verifies (against the embedded minisign pubkey), and
+/// installs whatever update `check_for_update` most recently found,
+/// then restarts the app. Auto-update spec: "Bad signature rejected" --
+/// `download_and_install` verifies before installing and returns an
+/// error instead, which propagates here as `Err` without touching the
+/// running app.
+#[tauri::command]
+pub async fn install_update(
+    app: AppHandle,
+    pending: State<'_, Mutex<Option<tauri_plugin_updater::Update>>>,
+) -> Result<(), String> {
+    let update = pending.lock().unwrap().take().ok_or("no update available to install")?;
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    app.restart();
 }

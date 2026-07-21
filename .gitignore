@@ -50,3 +50,9 @@ dev-support/test-environments/docker-compose/postgres-data
 dev-support/test-environments/docker-compose/docker-config/credentials.json
 
 .vscode/
+
+# Tauri updater signing keys -- the private key must never be committed;
+# see openspec/changes/rewrite-fleet-snowfluff-rust/design.md D10 for
+# where the real one lives (GitHub Actions secrets).
+*.key
+*.key.pub

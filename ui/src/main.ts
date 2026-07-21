@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-shell";
 import "@picocss/pico/css/pico.min.css";
 import "./style.css";
@@ -52,11 +53,27 @@ async function loadDictionary(): Promise<void> {
 }
 
 type Tab = "personalization" | "update" | "about";
-let activeTab: Tab = "personalization";
+const TABS: Tab[] = ["personalization", "update", "about"];
+
+function initialTab(): Tab {
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return TABS.includes(requested as Tab) ? (requested as Tab) : "personalization";
+}
+
+let activeTab: Tab = initialTab();
 
 async function main(): Promise<void> {
   await loadDictionary();
   await render();
+
+  // The auto-update startup check (task 14.2) jumps an already-open
+  // settings window straight to the update tab this way; a freshly
+  // opened window gets it via the ?tab= query param above instead,
+  // since there's no page to still be listening on this event yet.
+  await listen<Tab>("switch-tab", (event) => {
+    activeTab = event.payload;
+    applyActiveTab();
+  });
 }
 
 async function render(): Promise<void> {
@@ -238,6 +255,11 @@ async function renderPersonalization(): Promise<void> {
   });
 }
 
+interface UpdateInfo {
+  version: string;
+  body: string | null;
+}
+
 async function renderUpdate(): Promise<void> {
   const panel = document.querySelector<HTMLElement>('[data-panel="update"]')!;
   const version = await getVersion();
@@ -245,7 +267,8 @@ async function renderUpdate(): Promise<void> {
 
   panel.innerHTML = `
     <p>${t("update.current_version_label", { version })}</p>
-    <button id="update-check-button" disabled>${t("update.check_button")}</button>
+    <button id="update-check-button">${t("update.check_button")}</button>
+    <div id="update-result"></div>
     ${field(t("update.skip_all_updates"), `<input type="checkbox" id="skip-updates-checkbox" ${snapshot.config.skip_updates ? "checked" : ""} />`)}
   `;
 
@@ -254,6 +277,63 @@ async function renderUpdate(): Promise<void> {
     .addEventListener("change", (e) => {
       invoke("set_skip_updates", { enabled: (e.target as HTMLInputElement).checked });
     });
+
+  const resultEl = panel.querySelector<HTMLElement>("#update-result")!;
+  const checkButton = panel.querySelector<HTMLButtonElement>("#update-check-button")!;
+  checkButton.addEventListener("click", () => checkForUpdate(resultEl, checkButton));
+
+  // If the startup check (14.2) already found and stashed an update
+  // before this window opened, reflect it immediately instead of
+  // making the user click "Check for Updates" again.
+  if (new URLSearchParams(window.location.search).get("tab") === "update") {
+    checkForUpdate(resultEl, checkButton);
+  }
+}
+
+async function checkForUpdate(
+  resultEl: HTMLElement,
+  checkButton: HTMLButtonElement,
+): Promise<void> {
+  checkButton.disabled = true;
+  resultEl.innerHTML = `<p>${t("update.checking")}</p>`;
+  try {
+    const update = await invoke<UpdateInfo | null>("check_for_update");
+    if (!update) {
+      resultEl.innerHTML = `<p>${t("update.up_to_date")}</p>`;
+      return;
+    }
+    resultEl.innerHTML = `
+      <p>${t("update.latest_version_label", { version: update.version })}</p>
+      ${update.body ? `<p>${update.body}</p>` : ""}
+      <button id="update-install-button">${t("update.install_button")}</button>
+      <button id="update-skip-version-button" class="secondary">${t("update.skip_this_version")}</button>
+    `;
+    resultEl
+      .querySelector<HTMLButtonElement>("#update-install-button")!
+      .addEventListener("click", async (e) => {
+        (e.target as HTMLButtonElement).disabled = true;
+        resultEl.insertAdjacentHTML("beforeend", `<p>${t("update.installing")}</p>`);
+        try {
+          // Restarts the app on success (Rust side calls AppHandle::
+          // restart), so this only returns here on failure.
+          await invoke("install_update");
+        } catch (err) {
+          console.error("update install failed:", err);
+          resultEl.insertAdjacentHTML("beforeend", `<p class="error">${t("update.error")}</p>`);
+        }
+      });
+    resultEl
+      .querySelector<HTMLButtonElement>("#update-skip-version-button")!
+      .addEventListener("click", async () => {
+        await invoke("set_skip_version", { version: update.version });
+        resultEl.innerHTML = "";
+      });
+  } catch (err) {
+    console.error("update check failed:", err);
+    resultEl.innerHTML = `<p class="error">${t("update.error")}</p>`;
+  } finally {
+    checkButton.disabled = false;
+  }
 }
 
 const AMEATH_URL = "https://gitee.com/lzy-buaa-jdi/ameath";

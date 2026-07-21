@@ -148,7 +148,7 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
                 let m = manager.lock().unwrap();
                 translate(m.ui_language(), "settings.window_title")
             };
-            settings_window::open_or_focus_settings(app, &title);
+            settings_window::open_or_focus_settings(app, &title, None);
             return;
         }
         "quit" => {
