@@ -43,8 +43,8 @@
 
   "about.version": "Version {version}",
   "about.credits_heading": "Credits",
-  "about.credits_original": "Fleet Snowfluff is a Rust rewrite of Ameath, a fan-made desktop pet originally created by -fugu-. All character art, animations, and voice clips bundled in this application originate from that project.",
-  "about.credits_rewrite": "The Rust rewrite (architecture, rendering, and platform support) is maintained by kagetsuki1997.",
+  "about.credits_original": "Fleet Snowfluff is a Rust rewrite of {ameath_link}, a fan-made desktop pet originally created by {fugu_link}. All character art, animations, and voice clips bundled in this application originate from that project.",
+  "about.credits_rewrite": "The Rust rewrite (architecture, rendering, and platform support) is maintained by {author_link}. Source code: {repo_link}.",
   "about.license_notice": "Code is licensed under the MIT License. Bundled character assets (GIFs, voice clips) are excluded from that grant.",
   "about.asset_disclaimer": "The pet character and its assets belong to Wuthering Waves by Kuro Games. This is an unofficial fan project, not affiliated with or endorsed by Kuro Games. Assets will be removed promptly upon any legitimate infringement request.",
 

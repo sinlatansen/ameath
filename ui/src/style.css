@@ -1,17 +1,19 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+/* Pico.css (imported in main.ts) styles every plain element -- inputs,
+   selects, buttons, headings, links -- automatically, including light/
+   dark mode. Everything below is just the small amount Pico has no
+   opinion on: the tab strip, and a compact label-left/control-right
+   row layout for the personalization form (Pico's default stacks
+   label above control, too tall for ~13 rows in a small window). */
+
+html {
   font-size: 14px;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
 }
 
 #app {
-  display: flex;
-  flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
 }
@@ -20,27 +22,30 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0;
 }
 
 .tabs {
   display: flex;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-bottom: 1px solid var(--pico-muted-border-color);
   flex-shrink: 0;
+  padding: 0 1rem;
 }
 
 .tab-button {
   flex: 1;
-  padding: 0.75rem 0.5rem;
+  margin: 0;
   border: none;
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
+  border-radius: 0;
   border-bottom: 2px solid transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--pico-color);
 }
 
 .tab-button.active {
-  border-bottom-color: currentColor;
+  border-bottom-color: var(--pico-primary);
+  color: var(--pico-primary);
   font-weight: 600;
 }
 
@@ -61,6 +66,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  margin: 0;
 }
 
 .field-row span {
@@ -68,12 +74,19 @@ body {
 }
 
 .field-row select,
-.field-row input[type="number"] {
+.field-row input:not([type="checkbox"]):not([type="range"]) {
+  width: auto;
   min-width: 8rem;
+  margin: 0;
+}
+
+.field-row input[type="checkbox"] {
+  margin: 0;
 }
 
 .field-row input[type="range"] {
   flex: 1;
+  margin: 0;
 }
 
 .panel[data-panel="about"] p,
@@ -91,7 +104,7 @@ body {
 }
 
 .error {
-  color: #d33;
+  color: var(--pico-del-color);
   font-size: 0.9em;
   word-break: break-word;
 }

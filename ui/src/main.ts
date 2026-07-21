@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { open } from "@tauri-apps/plugin-shell";
+import "@picocss/pico/css/pico.min.css";
 import "./style.css";
 
 type Dictionary = Record<string, string>;
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
 async function render(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>("#app")!;
   app.innerHTML = `
-    <div class="settings-window">
+    <main class="container-fluid settings-window">
       <nav class="tabs">
         <button class="tab-button" data-tab="personalization">${t("settings.tab.personalization")}</button>
         <button class="tab-button" data-tab="update">${t("settings.tab.update")}</button>
@@ -69,7 +71,7 @@ async function render(): Promise<void> {
       <section class="panel" data-panel="personalization"></section>
       <section class="panel" data-panel="update"></section>
       <section class="panel" data-panel="about"></section>
-    </div>
+    </main>
   `;
 
   for (const button of app.querySelectorAll<HTMLButtonElement>(".tab-button")) {
@@ -254,18 +256,36 @@ async function renderUpdate(): Promise<void> {
     });
 }
 
+const AMEATH_URL = "https://gitee.com/lzy-buaa-jdi/ameath";
+const FUGU_URL = "https://space.bilibili.com/84508966";
+const AUTHOR_URL = "https://github.com/kagetsuki1997";
+const REPO_URL = "https://github.com/kagetsuki1997/fleet-snowfluff";
+
+function externalLink(url: string, label: string): string {
+  return `<a href="${url}" class="external-link">${label}</a>`;
+}
+
 async function renderAbout(): Promise<void> {
   const panel = document.querySelector<HTMLElement>('[data-panel="about"]')!;
   const version = await getVersion();
 
   panel.innerHTML = `
     <p class="version">${t("about.version", { version })}</p>
-    <h3>${t("about.credits_heading")}</h3>
-    <p>${t("about.credits_original")}</p>
-    <p>${t("about.credits_rewrite")}</p>
     <p>${t("about.license_notice")}</p>
     <p class="disclaimer">${t("about.asset_disclaimer")}</p>
+    <h3>${t("about.credits_heading")}</h3>
+    <p>${t("about.credits_original", { ameath_link: externalLink(AMEATH_URL, "Ameath"), fugu_link: externalLink(FUGU_URL, "-fugu-") })}</p>
+    <p>${t("about.credits_rewrite", { author_link: externalLink(AUTHOR_URL, "kagetsuki1997"), repo_link: externalLink(REPO_URL, "github.com/kagetsuki1997/fleet-snowfluff") })}</p>
   `;
+
+  // Links must open in the system browser, not navigate this settings
+  // window itself away to an external site.
+  for (const link of panel.querySelectorAll<HTMLAnchorElement>("a.external-link")) {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      open(link.href);
+    });
+  }
 }
 
 main();

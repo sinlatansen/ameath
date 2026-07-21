@@ -27,6 +27,7 @@ serde                = { workspace = true }
 serde_json           = { workspace = true }
 tauri                = { workspace = true }
 tauri-plugin-log     = { workspace = true }
+tauri-plugin-shell   = { workspace = true }
 wgpu                 = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -43,8 +43,8 @@
 
   "about.version": "版本 {version}",
   "about.credits_heading": "致謝",
-  "about.credits_original": "飛行雪絨（Fleet Snowfluff）是桌面寵物 Ameath 的 Rust 重寫版，原作者為 -fugu-。本應用程式中包含的所有角色美術、動畫與語音，皆來自該專案。",
-  "about.credits_rewrite": "Rust 重寫版本（架構、繪製與平台支援）由 kagetsuki1997 維護。",
+  "about.credits_original": "飛行雪絨（Fleet Snowfluff）是桌面寵物 {ameath_link} 的 Rust 重寫版，原作者為 {fugu_link}。本應用程式中包含的所有角色美術、動畫與語音，皆來自該專案。",
+  "about.credits_rewrite": "Rust 重寫版本（架構、繪製與平台支援）由 {author_link} 維護。原始碼：{repo_link}。",
   "about.license_notice": "程式碼採用 MIT 授權條款。隨附的角色資源（GIF 動畫、語音片段）不在此授權範圍內。",
   "about.asset_disclaimer": "寵物角色及其資源版權屬於《鳴潮》（Kuro Games）所有。本專案為非官方粉絲作品，與 Kuro Games 無關聯、亦未獲其認可。若收到合法侵權申訴，將立即移除相關資源。",
 
