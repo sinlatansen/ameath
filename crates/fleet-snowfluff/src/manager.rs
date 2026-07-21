@@ -98,6 +98,11 @@ pub struct PetManager {
     pub scale: f64,
     pub opacity: f32,
     pub paused: bool,
+    /// User-requested visibility (tray/quick-menu show/hide, task 12.1),
+    /// independent of the mode-2 fullscreen auto-hide -- a pet is only
+    /// actually shown when both this is true and it isn't currently
+    /// hidden behind a fullscreen app, see `apply_visibility`.
+    visible: bool,
     /// Whether paused pets dock to the current foreground window (task
     /// 6.8, D15). Only wired up on macOS so far (7.2/9.2 remain).
     window_snap: bool,
@@ -150,6 +155,7 @@ impl PetManager {
             scale: 1.0,
             opacity: 1.0,
             paused: false,
+            visible: true,
             window_snap: true,
             click_through: false,
             display_priority: 1,
@@ -228,6 +234,7 @@ impl PetManager {
         pet.apply_display_priority(self.display_priority);
         pet.window.set_ignore_cursor_events(self.click_through).ok();
         self.pets.push(pet);
+        self.apply_visibility();
     }
 
     pub fn set_instance_count(&mut self, count: usize) {
@@ -282,6 +289,26 @@ impl PetManager {
         self.paused = paused;
         for pet in &mut self.pets {
             pet.paused = paused;
+        }
+    }
+
+    pub fn visible(&self) -> bool { self.visible }
+
+    /// User-requested show/hide (tray/quick-menu, task 12.1). Combined
+    /// with the mode-2 fullscreen auto-hide via `apply_visibility` --
+    /// either one hiding the pets is enough to hide them.
+    pub fn set_visible(&mut self, visible: bool) {
+        self.visible = visible;
+        self.apply_visibility();
+    }
+
+    fn apply_visibility(&self) {
+        #[cfg(target_os = "macos")]
+        let effective = self.visible && !self.hidden_by_fullscreen;
+        #[cfg(not(target_os = "macos"))]
+        let effective = self.visible;
+        for pet in &self.pets {
+            pet.set_visible(effective);
         }
     }
 
@@ -404,9 +431,7 @@ impl PetManager {
                 .unwrap_or(false);
             if is_fullscreen != self.hidden_by_fullscreen {
                 self.hidden_by_fullscreen = is_fullscreen;
-                for pet in &self.pets {
-                    pet.set_visible(!is_fullscreen);
-                }
+                self.apply_visibility();
             }
         }
 

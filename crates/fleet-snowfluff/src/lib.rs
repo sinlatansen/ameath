@@ -5,6 +5,8 @@ pub mod gfx;
 pub mod manager;
 pub mod pet;
 pub mod platform;
+pub mod settings_window;
+pub mod tray;
 pub mod voice;
 
 use std::{sync::Mutex, time::Duration};
@@ -40,6 +42,7 @@ pub fn run() {
             pet_manager.set_display_priority(default_config.display_priority);
             pet_manager.set_window_snap(default_config.window_snap);
             app.manage(Mutex::new(pet_manager));
+            tray::build(&app_handle)?;
 
             // Same background-thread + run_on_main_thread pattern proven
             // in examples/transparent_gif.rs (design.md D14): Tauri's
