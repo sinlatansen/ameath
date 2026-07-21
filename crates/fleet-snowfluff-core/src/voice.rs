@@ -59,6 +59,51 @@ pub fn resolve_voice_language(
     }
 }
 
+/// Picks which clip (by index into the active pack) plays next, avoiding
+/// a fourth consecutive play of the same clip (legacy allows up to three
+/// in a row) -- ported from legacy's `play_random_voice` anti-repeat
+/// rule. Actual playback (rodio) is a shell concern; this only decides
+/// *which* clip.
+#[derive(Debug, Clone, Default)]
+pub struct ClipSelector {
+    last_index: Option<usize>,
+    consecutive_count: u32,
+}
+
+impl ClipSelector {
+    pub fn new() -> Self { Self::default() }
+
+    /// Picks an index in `0..clip_count`. Panics if `clip_count == 0` --
+    /// callers should not invoke this on an empty pack (the
+    /// `resolve_voice_language`/manifest invariant already guarantees a
+    /// selected pack is non-empty).
+    pub fn pick(&mut self, clip_count: usize, rng: &mut impl rand::Rng) -> usize {
+        assert!(clip_count > 0, "ClipSelector::pick called with an empty pack");
+
+        let index = if clip_count == 1 {
+            0
+        } else if self.consecutive_count >= 2 {
+            let last = self.last_index.expect("consecutive_count > 0 implies a last_index");
+            loop {
+                let candidate = rng.random_range(0..clip_count);
+                if candidate != last {
+                    break candidate;
+                }
+            }
+        } else {
+            rng.random_range(0..clip_count)
+        };
+
+        if Some(index) == self.last_index {
+            self.consecutive_count += 1;
+        } else {
+            self.last_index = Some(index);
+            self.consecutive_count = 0;
+        }
+        index
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +134,52 @@ mod tests {
         let manifest: VoiceManifest = serde_json::from_str(json).unwrap();
         assert_eq!(manifest.language, VoiceLanguage::Zh);
         assert_eq!(manifest.clips.len(), 2);
+    }
+
+    fn rng() -> rand::rngs::StdRng {
+        use rand::SeedableRng;
+        rand::rngs::StdRng::seed_from_u64(11)
+    }
+
+    #[test]
+    fn single_clip_always_picks_index_zero() {
+        let mut selector = ClipSelector::new();
+        let mut rng = rng();
+        for _ in 0..10 {
+            assert_eq!(selector.pick(1, &mut rng), 0);
+        }
+    }
+
+    #[test]
+    fn never_plays_the_same_clip_four_times_in_a_row() {
+        // Legacy's own comment is explicit: "避免连续播放同一语音超过三次"
+        // -- avoid playing the same voice consecutively *more than three*
+        // times. Up to 3 in a row is allowed; the guard only blocks the 4th.
+        let mut selector = ClipSelector::new();
+        let mut rng = rng();
+        let mut history = Vec::new();
+        for _ in 0..500 {
+            history.push(selector.pick(5, &mut rng));
+        }
+        for window in history.windows(4) {
+            assert!(
+                !(window[0] == window[1] && window[1] == window[2] && window[2] == window[3]),
+                "clip {} played four times in a row",
+                window[0]
+            );
+        }
+    }
+
+    #[test]
+    fn two_clips_never_reach_a_fourth_consecutive_play() {
+        let mut selector = ClipSelector::new();
+        let mut rng = rng();
+        let mut history = Vec::new();
+        for _ in 0..50 {
+            history.push(selector.pick(2, &mut rng));
+        }
+        for window in history.windows(4) {
+            assert!(!(window[0] == window[1] && window[1] == window[2] && window[2] == window[3]));
+        }
     }
 }

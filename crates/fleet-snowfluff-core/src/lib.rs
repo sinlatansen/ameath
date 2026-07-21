@@ -15,4 +15,4 @@ pub use motion::{
 };
 pub use pause::{PauseAnimEvent, PauseAnimationScheduler};
 pub use swarm::PetSwarm;
-pub use voice::{resolve_voice_language, VoiceLanguage, VoiceManifest};
+pub use voice::{resolve_voice_language, ClipSelector, VoiceLanguage, VoiceManifest};
