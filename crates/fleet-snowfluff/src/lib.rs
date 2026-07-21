@@ -1,5 +1,6 @@
 pub mod animation;
 pub mod assets;
+pub mod commands;
 pub mod gfx;
 pub mod manager;
 pub mod pet;
@@ -15,6 +16,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![commands::locale_dictionary])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

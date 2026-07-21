@@ -11,7 +11,7 @@ use std::sync::{
 };
 
 use device_query::DeviceState;
-use fleet_snowfluff_core::{Bounds, MotionSettings, VoiceLanguage, WanderStayMode};
+use fleet_snowfluff_core::{Bounds, MotionSettings, UiLanguage, VoiceLanguage, WanderStayMode};
 use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{
@@ -117,6 +117,7 @@ pub struct PetManager {
     was_left_down: bool,
     tick_count: u64,
     voice: VoicePlayer,
+    ui_language: UiLanguage,
     #[cfg(target_os = "macos")]
     hidden_by_fullscreen: bool,
 }
@@ -158,6 +159,11 @@ impl PetManager {
             was_left_down: false,
             tick_count: 0,
             voice,
+            // Full config-file persistence (task 13.2) will let a saved
+            // override beat this; until then every launch resolves fresh
+            // from the system locale, matching the localization spec's
+            // first-run behavior.
+            ui_language: fleet_snowfluff_core::detect_ui_language(),
             #[cfg(target_os = "macos")]
             hidden_by_fullscreen: false,
         }
@@ -307,6 +313,19 @@ impl PetManager {
         for pet in &self.pets {
             pet.apply_display_priority(mode);
         }
+    }
+
+    pub fn ui_language(&self) -> UiLanguage { self.ui_language }
+
+    pub fn set_ui_language(&mut self, language: UiLanguage) { self.ui_language = language; }
+
+    /// The active UI language's locale dictionary as raw JSON, for the
+    /// settings webview to `JSON.parse` itself (task 11.2) -- the
+    /// dictionary is the single source of truth for both Rust and the
+    /// webview, so this hands over the authored file verbatim rather
+    /// than re-serializing a parsed form.
+    pub fn locale_dictionary_json(&self) -> &'static str {
+        fleet_snowfluff_core::dictionary_json(self.ui_language)
     }
 
     pub fn set_voice_enabled(&mut self, enabled: bool) { self.voice.set_enabled(enabled); }
