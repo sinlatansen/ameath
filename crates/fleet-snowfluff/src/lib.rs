@@ -54,9 +54,19 @@ pub fn run() {
                 std::thread::sleep(Duration::from_millis(MOVE_INTERVAL_MS as u64));
                 let handle = tick_handle.clone();
                 let result = tick_handle.run_on_main_thread(move || {
-                    let state = handle.state::<Mutex<PetManager>>();
-                    let mut manager = state.lock().unwrap();
-                    manager.tick(MOVE_INTERVAL_MS);
+                    let pending_quick_menu = {
+                        let state = handle.state::<Mutex<PetManager>>();
+                        let mut manager = state.lock().unwrap();
+                        manager.tick(MOVE_INTERVAL_MS)
+                        // lock released at the end of this block --
+                        // quick_menu::popup below needs to read
+                        // PetManager state itself (see tick's doc
+                        // comment), which would deadlock if it ran
+                        // while still holding this same lock.
+                    };
+                    if let Some(window) = pending_quick_menu {
+                        quick_menu::popup(&handle, &window);
+                    }
                 });
                 if result.is_err() {
                     break;

@@ -377,8 +377,12 @@ impl PetManager {
     /// once (position + left-button) for both follow-mouse targeting and
     /// drag detection (task 6.6 -- Tauri's windowless Window has no
     /// click events, see design.md), advances every pet, and renders.
-    pub fn tick(&mut self, dt_ms: i64) {
-        let Some(gpu) = self.gpu.as_ref() else { return };
+    /// Returns the pet window a quick menu should open on, if any --
+    /// the caller must show it only *after* releasing the `PetManager`
+    /// lock this method runs under (see the doc comment at the
+    /// right-click detection site below for why).
+    pub fn tick(&mut self, dt_ms: i64) -> Option<tauri::window::Window> {
+        let gpu = self.gpu.as_ref()?;
 
         let (cursor, left_down, right_down) = match &self.device_state {
             Some(ds) => {
@@ -402,6 +406,15 @@ impl PetManager {
         let right_pressed_this_tick = right_down && !self.was_right_down;
         self.was_right_down = right_down;
 
+        // Set when a right-click lands on a pet this tick; returned to
+        // the caller so it can pop the menu up only after releasing the
+        // `Mutex<PetManager>` lock `tick` runs under -- `Menu::popup`
+        // reads current state (paused/visible/follow/click-through) to
+        // build its labels, and doing that from in here, while the lock
+        // this same method is called under is still held, would deadlock
+        // a non-reentrant `std::sync::Mutex` against itself.
+        let mut pending_quick_menu = None;
+
         if self.device_state.is_some() && !self.click_through {
             if left_pressed_this_tick && self.drag_owner.is_none() {
                 if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
@@ -419,14 +432,10 @@ impl PetManager {
 
             // Quick context menu (task 12.2): windowless pet windows get
             // no native right-click event, so this rides the same global
-            // mouse poll as drag detection. `popup` blocks the main
-            // thread until the menu is dismissed -- expected for a modal
-            // context menu, and it freezes the pet's pose for the
-            // duration exactly like legacy's temporary-pause-on-open.
+            // mouse poll as drag detection.
             if right_pressed_this_tick {
                 if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
-                    let window = self.pets[idx].window.clone();
-                    crate::quick_menu::popup(&self.app, &window);
+                    pending_quick_menu = Some(self.pets[idx].window.clone());
                 }
             }
         }
@@ -483,6 +492,8 @@ impl PetManager {
             }
             pet.render(gpu);
         }
+
+        pending_quick_menu
     }
 
     pub fn len(&self) -> usize { self.pets.len() }
