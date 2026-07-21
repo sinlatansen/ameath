@@ -8,12 +8,18 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 const SETTINGS_WINDOW_LABEL: &str = "settings";
 
 /// Opens the settings window, or focuses it if already open.
-/// `initial_tab` selects which tab should be active -- `None` leaves it
-/// at whatever the window (new or already-open) currently defaults to;
-/// `Some("update")` is how the startup update check (14.2) jumps
-/// straight to the update tab. A fresh window gets it via a URL query
-/// param (read once at load); an already-open window gets it via a
-/// `switch-tab` event, since reloading the page would lose its state.
+/// `initial_tab` requests which tab should be active -- `None` leaves
+/// it wherever the window currently defaults to; `Some("update")` is
+/// how the startup update check (14.2) asks for the update tab. Always
+/// loads the same plain `index.html` (no query string: Tauri's local
+/// asset resolution for `WebviewUrl::App` isn't guaranteed to treat a
+/// `?query` suffix as a real query string rather than part of the
+/// asset's filename, and got exactly that wrong once already -- a
+/// blank window instead of a 404). For an already-open window,
+/// `initial_tab` is delivered via a `switch-tab` event; a freshly
+/// created window instead reads the pending update straight from
+/// `pending_update` on load (task 14.2/commands.rs), since there's no
+/// listener registered yet to catch an event fired this early.
 pub fn open_or_focus_settings(app: &AppHandle, title: &str, initial_tab: Option<&str>) {
     if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
         window.show().ok();
@@ -24,16 +30,13 @@ pub fn open_or_focus_settings(app: &AppHandle, title: &str, initial_tab: Option<
         return;
     }
 
-    let url = match initial_tab {
-        Some(tab) => format!("index.html?tab={tab}"),
-        None => "index.html".to_string(),
-    };
-    let result = WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::App(url.into()))
-        .title(title)
-        .inner_size(480.0, 560.0)
-        .resizable(true)
-        .center()
-        .build();
+    let result =
+        WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+            .title(title)
+            .inner_size(480.0, 560.0)
+            .resizable(true)
+            .center()
+            .build();
 
     if let Err(err) = result {
         log::error!("failed to open settings window: {err}");

@@ -236,6 +236,25 @@ pub struct UpdateInfo {
     pub body: Option<String>,
 }
 
+/// Reads whatever the startup check (updater.rs) already found, if
+/// anything, without making another network request. The settings
+/// webview calls this once on load to decide whether to default to the
+/// update tab and show the result immediately -- previously it instead
+/// re-ran `check_for_update` itself whenever opened via the startup
+/// path, a redundant second GitHub round-trip that could itself fail
+/// (transient network blip, rate limit) independently of the first one
+/// having already succeeded.
+#[tauri::command]
+pub fn pending_update(
+    pending: State<Mutex<Option<tauri_plugin_updater::Update>>>,
+) -> Option<UpdateInfo> {
+    pending
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|update| UpdateInfo { version: update.version.clone(), body: update.body.clone() })
+}
+
 /// Manual "Check for Updates" (always available regardless of
 /// skip-all-updates, per the auto-update spec). Stashes the found
 /// `Update` in the same state the startup check (updater.rs) uses, so

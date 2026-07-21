@@ -53,23 +53,30 @@ async function loadDictionary(): Promise<void> {
 }
 
 type Tab = "personalization" | "update" | "about";
-const TABS: Tab[] = ["personalization", "update", "about"];
+let activeTab: Tab = "personalization";
 
-function initialTab(): Tab {
-  const requested = new URLSearchParams(window.location.search).get("tab");
-  return TABS.includes(requested as Tab) ? (requested as Tab) : "personalization";
+interface UpdateInfo {
+  version: string;
+  body: string | null;
 }
 
-let activeTab: Tab = initialTab();
+// Whatever the startup check (updater.rs, task 14.2) already found, if
+// anything -- read once at load via `pending_update` (no network
+// request of its own) so the update tab can show it immediately
+// instead of re-checking GitHub a second time.
+let pendingUpdate: UpdateInfo | null = null;
 
 async function main(): Promise<void> {
   await loadDictionary();
+  pendingUpdate = await invoke<UpdateInfo | null>("pending_update");
+  if (pendingUpdate) {
+    activeTab = "update";
+  }
   await render();
 
-  // The auto-update startup check (task 14.2) jumps an already-open
-  // settings window straight to the update tab this way; a freshly
-  // opened window gets it via the ?tab= query param above instead,
-  // since there's no page to still be listening on this event yet.
+  // Only relevant if the startup check finds an update *after* this
+  // window is already open (pendingUpdate above only covers the case
+  // where it was found before the window existed).
   await listen<Tab>("switch-tab", (event) => {
     activeTab = event.payload;
     applyActiveTab();
@@ -255,11 +262,6 @@ async function renderPersonalization(): Promise<void> {
   });
 }
 
-interface UpdateInfo {
-  version: string;
-  body: string | null;
-}
-
 async function renderUpdate(): Promise<void> {
   const panel = document.querySelector<HTMLElement>('[data-panel="update"]')!;
   const version = await getVersion();
@@ -282,11 +284,10 @@ async function renderUpdate(): Promise<void> {
   const checkButton = panel.querySelector<HTMLButtonElement>("#update-check-button")!;
   checkButton.addEventListener("click", () => checkForUpdate(resultEl, checkButton));
 
-  // If the startup check (14.2) already found and stashed an update
-  // before this window opened, reflect it immediately instead of
-  // making the user click "Check for Updates" again.
-  if (new URLSearchParams(window.location.search).get("tab") === "update") {
-    checkForUpdate(resultEl, checkButton);
+  // The startup check (14.2) may have already found this before the
+  // window opened -- show it directly rather than hitting GitHub again.
+  if (pendingUpdate) {
+    showUpdateResult(resultEl, pendingUpdate);
   }
 }
 
@@ -298,42 +299,46 @@ async function checkForUpdate(
   resultEl.innerHTML = `<p>${t("update.checking")}</p>`;
   try {
     const update = await invoke<UpdateInfo | null>("check_for_update");
-    if (!update) {
-      resultEl.innerHTML = `<p>${t("update.up_to_date")}</p>`;
-      return;
-    }
-    resultEl.innerHTML = `
-      <p>${t("update.latest_version_label", { version: update.version })}</p>
-      ${update.body ? `<p>${update.body}</p>` : ""}
-      <button id="update-install-button">${t("update.install_button")}</button>
-      <button id="update-skip-version-button" class="secondary">${t("update.skip_this_version")}</button>
-    `;
-    resultEl
-      .querySelector<HTMLButtonElement>("#update-install-button")!
-      .addEventListener("click", async (e) => {
-        (e.target as HTMLButtonElement).disabled = true;
-        resultEl.insertAdjacentHTML("beforeend", `<p>${t("update.installing")}</p>`);
-        try {
-          // Restarts the app on success (Rust side calls AppHandle::
-          // restart), so this only returns here on failure.
-          await invoke("install_update");
-        } catch (err) {
-          console.error("update install failed:", err);
-          resultEl.insertAdjacentHTML("beforeend", `<p class="error">${t("update.error")}</p>`);
-        }
-      });
-    resultEl
-      .querySelector<HTMLButtonElement>("#update-skip-version-button")!
-      .addEventListener("click", async () => {
-        await invoke("set_skip_version", { version: update.version });
-        resultEl.innerHTML = "";
-      });
+    showUpdateResult(resultEl, update);
   } catch (err) {
     console.error("update check failed:", err);
     resultEl.innerHTML = `<p class="error">${t("update.error")}</p>`;
   } finally {
     checkButton.disabled = false;
   }
+}
+
+function showUpdateResult(resultEl: HTMLElement, update: UpdateInfo | null): void {
+  if (!update) {
+    resultEl.innerHTML = `<p>${t("update.up_to_date")}</p>`;
+    return;
+  }
+  resultEl.innerHTML = `
+    <p>${t("update.latest_version_label", { version: update.version })}</p>
+    ${update.body ? `<p>${update.body}</p>` : ""}
+    <button id="update-install-button">${t("update.install_button")}</button>
+    <button id="update-skip-version-button" class="secondary">${t("update.skip_this_version")}</button>
+  `;
+  resultEl
+    .querySelector<HTMLButtonElement>("#update-install-button")!
+    .addEventListener("click", async (e) => {
+      (e.target as HTMLButtonElement).disabled = true;
+      resultEl.insertAdjacentHTML("beforeend", `<p>${t("update.installing")}</p>`);
+      try {
+        // Restarts the app on success (Rust side calls AppHandle::
+        // restart), so this only returns here on failure.
+        await invoke("install_update");
+      } catch (err) {
+        console.error("update install failed:", err);
+        resultEl.insertAdjacentHTML("beforeend", `<p class="error">${t("update.error")}</p>`);
+      }
+    });
+  resultEl
+    .querySelector<HTMLButtonElement>("#update-skip-version-button")!
+    .addEventListener("click", async () => {
+      await invoke("set_skip_version", { version: update.version });
+      resultEl.innerHTML = "";
+    });
 }
 
 const AMEATH_URL = "https://gitee.com/lzy-buaa-jdi/ameath";

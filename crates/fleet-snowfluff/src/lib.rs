@@ -41,6 +41,7 @@ pub fn run() {
             commands::set_auto_startup,
             commands::set_skip_updates,
             commands::set_skip_version,
+            commands::pending_update,
             commands::check_for_update,
             commands::install_update,
         ])
