@@ -15,6 +15,7 @@ log              = "0.4"
 pollster         = "0.4"
 rand             = "0.9"
 sys-locale       = "0.3"
+device_query     = "4"
 serde            = { version = "1", features = ["derive"] }
 serde_json       = "1"
 tauri            = { version = "2.8.5", features = ["unstable", "macos-private-api"] }
