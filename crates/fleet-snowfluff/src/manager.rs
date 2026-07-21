@@ -120,6 +120,7 @@ pub struct PetManager {
     device_state: Option<DeviceState>,
     drag_owner: Option<usize>,
     was_left_down: bool,
+    was_right_down: bool,
     tick_count: u64,
     voice: VoicePlayer,
     ui_language: UiLanguage,
@@ -163,6 +164,7 @@ impl PetManager {
             device_state,
             drag_owner: None,
             was_left_down: false,
+            was_right_down: false,
             tick_count: 0,
             voice,
             // Full config-file persistence (task 13.2) will let a saved
@@ -378,23 +380,27 @@ impl PetManager {
     pub fn tick(&mut self, dt_ms: i64) {
         let Some(gpu) = self.gpu.as_ref() else { return };
 
-        let (cursor, left_down) = match &self.device_state {
+        let (cursor, left_down, right_down) = match &self.device_state {
             Some(ds) => {
                 let mouse_state = ds.query_pointer();
                 let cursor = (mouse_state.coords.0 as f64, mouse_state.coords.1 as f64);
                 // device_query's button_pressed is 1-indexed (button
                 // numbers, not array positions) -- index 0 is documented
-                // as always false/meaningless; index 1 is the left button.
+                // as always false/meaningless; index 1 is the left
+                // button, index 2 is the right button.
                 let left_down = mouse_state.button_pressed.get(1).copied().unwrap_or(false);
-                (cursor, left_down)
+                let right_down = mouse_state.button_pressed.get(2).copied().unwrap_or(false);
+                (cursor, left_down, right_down)
             }
             // No mouse polling available: pets still move, just never
-            // drag or follow the cursor.
-            None => ((0.0, 0.0), false),
+            // drag, follow the cursor, or open the quick menu.
+            None => ((0.0, 0.0), false, false),
         };
         let left_pressed_this_tick = left_down && !self.was_left_down;
         let left_released_this_tick = !left_down && self.was_left_down;
         self.was_left_down = left_down;
+        let right_pressed_this_tick = right_down && !self.was_right_down;
+        self.was_right_down = right_down;
 
         if self.device_state.is_some() && !self.click_through {
             if left_pressed_this_tick && self.drag_owner.is_none() {
@@ -408,6 +414,19 @@ impl PetManager {
                     if let Some(pet) = self.pets.get_mut(idx) {
                         pet.stop_drag();
                     }
+                }
+            }
+
+            // Quick context menu (task 12.2): windowless pet windows get
+            // no native right-click event, so this rides the same global
+            // mouse poll as drag detection. `popup` blocks the main
+            // thread until the menu is dismissed -- expected for a modal
+            // context menu, and it freezes the pet's pose for the
+            // duration exactly like legacy's temporary-pause-on-open.
+            if right_pressed_this_tick {
+                if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
+                    let window = self.pets[idx].window.clone();
+                    crate::quick_menu::popup(&self.app, &window);
                 }
             }
         }

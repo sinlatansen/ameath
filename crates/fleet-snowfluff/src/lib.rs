@@ -5,6 +5,7 @@ pub mod gfx;
 pub mod manager;
 pub mod pet;
 pub mod platform;
+pub mod quick_menu;
 pub mod settings_window;
 pub mod tray;
 pub mod voice;
