@@ -1,6 +1,7 @@
 pub mod animation;
 pub mod assets;
 pub mod commands;
+pub mod config_store;
 pub mod gfx;
 pub mod manager;
 pub mod pet;
@@ -12,14 +13,30 @@ pub mod voice;
 
 use std::{sync::Mutex, time::Duration};
 
-use fleet_snowfluff_core::{constants::MOVE_INTERVAL_MS, Config};
+use fleet_snowfluff_core::{constants::MOVE_INTERVAL_MS, Config, WanderStayMode};
 use manager::PetManager;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![commands::locale_dictionary])
+        .invoke_handler(tauri::generate_handler![
+            commands::locale_dictionary,
+            commands::get_personalization,
+            commands::set_scale_index,
+            commands::set_opacity_index,
+            commands::set_display_priority,
+            commands::set_wander_stay_mode,
+            commands::set_total_screen,
+            commands::set_monitor_index,
+            commands::set_window_snap,
+            commands::set_instance_count,
+            commands::set_ui_language,
+            commands::set_voice_enabled,
+            commands::set_voice_volume,
+            commands::set_voice_language,
+            commands::set_auto_startup,
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -27,22 +44,43 @@ pub fn run() {
                 )?;
             }
 
-            // Full config-file persistence (reading instance count, scale,
-            // etc. from disk) lands with the settings-ui tasks; for now
-            // this seeds from Config::default() -- the same typed default
-            // the real config will use -- so total_screen is a genuine
-            // setting (PetManager::set_total_screen) rather than a bare
-            // literal, and toggling it is just one call away for whichever
-            // UI surface ends up exposing it first.
+            // Bootstrap with typed defaults first (total_screen needs to
+            // be known before PetManager can compute initial bounds);
+            // the real persisted config -- which may override every one
+            // of these -- loads right after and every field is
+            // reconciled via the matching setter.
             let default_config = Config::default();
             let app_handle = app.handle().clone();
             let mut pet_manager = PetManager::new(app_handle.clone(), default_config.total_screen);
             pet_manager.set_instance_count(1);
-            pet_manager.set_voice_enabled(default_config.voice_enabled);
-            pet_manager.set_voice_volume_percent(default_config.voice_volume);
-            pet_manager.set_display_priority(default_config.display_priority);
-            pet_manager.set_window_snap(default_config.window_snap);
+
+            let config = config_store::load(&app_handle, pet_manager.voice_languages_with_clips());
+            pet_manager
+                .set_scale(fleet_snowfluff_core::constants::scale_options()[config.scale_index]);
+            pet_manager.set_opacity(
+                fleet_snowfluff_core::constants::transparency_options()[config.transparency_index]
+                    as f32,
+            );
+            pet_manager.set_total_screen(config.total_screen);
+            pet_manager.set_monitor_index(config.screen_index);
+            pet_manager.set_window_snap(config.window_snap);
+            pet_manager.set_click_through(config.click_through);
+            pet_manager.settings.follow_mouse = config.follow_mouse;
+            pet_manager.settings.wander_idle_stay_mode =
+                WanderStayMode::from_legacy_mode(config.wander_idle_stay_mode as i32);
+            pet_manager.set_display_priority(config.display_priority);
+            pet_manager.set_instance_count(config.instance_count);
+            pet_manager.set_voice_enabled(config.voice_enabled);
+            pet_manager.set_voice_volume_percent(config.voice_volume);
+            pet_manager.set_voice_language(config.voice_language);
+            pet_manager.set_ui_language(config.ui_language);
+            // Persist immediately so sanitize-on-load corrections (or a
+            // fresh default on first run) are on disk right away, not
+            // only after the first setting the user happens to change.
+            config_store::save(&app_handle, &config);
+
             app.manage(Mutex::new(pet_manager));
+            app.manage(Mutex::new(config));
             tray::build(&app_handle)?;
 
             // Same background-thread + run_on_main_thread pattern proven

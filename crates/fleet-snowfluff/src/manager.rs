@@ -49,10 +49,13 @@ fn monitor_logical_bounds(m: &tauri::window::Monitor) -> Bounds {
 }
 
 /// Sums every monitor's bounds into one roaming area (legacy's
-/// `total_screen` mode), or returns just the primary monitor's bounds
-/// otherwise. Falls back to a reasonable default if monitor info is
-/// unavailable (e.g. running headless).
-fn compute_bounds(app: &tauri::AppHandle, total_screen: bool) -> Bounds {
+/// `total_screen` mode), or confines to a single monitor otherwise:
+/// `monitor_index` into `available_monitors()` if it's in range
+/// (desktop-integration spec's "confinement to one selected monitor"),
+/// falling back to the primary monitor for a negative or out-of-range
+/// index (legacy's own default). Falls back to a reasonable default
+/// bounds if monitor info is unavailable at all (e.g. running headless).
+fn compute_bounds(app: &tauri::AppHandle, total_screen: bool, monitor_index: i64) -> Bounds {
     let fallback = Bounds { left: 0.0, top: 0.0, right: 1920.0, bottom: 1080.0 };
 
     if total_screen {
@@ -74,9 +77,12 @@ fn compute_bounds(app: &tauri::AppHandle, total_screen: bool) -> Bounds {
             _ => fallback,
         }
     } else {
-        match app.primary_monitor() {
-            Ok(Some(m)) => monitor_logical_bounds(&m),
-            _ => fallback,
+        let selected = usize::try_from(monitor_index)
+            .ok()
+            .and_then(|idx| app.available_monitors().ok().and_then(|ms| ms.get(idx).cloned()));
+        match selected.or_else(|| app.primary_monitor().ok().flatten()) {
+            Some(m) => monitor_logical_bounds(&m),
+            None => fallback,
         }
     }
 }
@@ -94,6 +100,10 @@ pub struct PetManager {
     /// tick (existing positions are left as-is, matching legacy, rather
     /// than snapping pets that are now technically out of bounds).
     total_screen: bool,
+    /// Which monitor to confine to when `total_screen` is false; an
+    /// index into `available_monitors()`, or out of range (default -1)
+    /// to mean "the primary monitor".
+    monitor_index: i64,
     pub settings: MotionSettings,
     pub scale: f64,
     pub opacity: f32,
@@ -130,7 +140,8 @@ pub struct PetManager {
 
 impl PetManager {
     pub fn new(app: tauri::AppHandle, total_screen: bool) -> Self {
-        let bounds = compute_bounds(&app, total_screen);
+        let monitor_index = -1;
+        let bounds = compute_bounds(&app, total_screen, monitor_index);
         let device_state = std::panic::catch_unwind(std::panic::AssertUnwindSafe(DeviceState::new))
             .inspect_err(|_| {
                 log::warn!(
@@ -149,6 +160,7 @@ impl PetManager {
             pets: Vec::new(),
             bounds,
             total_screen,
+            monitor_index,
             settings: MotionSettings {
                 follow_mouse: false,
                 wander_idle_stay_mode: WanderStayMode::Stationary,
@@ -255,17 +267,32 @@ impl PetManager {
 
     pub fn total_screen(&self) -> bool { self.total_screen }
 
-    /// Switches between roaming all monitors and confining to the
-    /// primary one (desktop-integration spec: "Multi-monitor placement").
+    /// Switches between roaming all monitors and confining to a single
+    /// one (desktop-integration spec: "Multi-monitor placement").
     pub fn set_total_screen(&mut self, total_screen: bool) {
         self.total_screen = total_screen;
-        self.bounds = compute_bounds(&self.app, total_screen);
+        self.recompute_bounds();
+    }
+
+    pub fn monitor_index(&self) -> i64 { self.monitor_index }
+
+    /// Which monitor to confine to when not roaming all screens; only
+    /// takes effect once `total_screen` is false.
+    pub fn set_monitor_index(&mut self, monitor_index: i64) {
+        self.monitor_index = monitor_index;
+        self.recompute_bounds();
+    }
+
+    fn recompute_bounds(&mut self) {
+        self.bounds = compute_bounds(&self.app, self.total_screen, self.monitor_index);
         log::info!(
-            "total_screen -> {total_screen}, bounds: {:?}..{:?} x {:?}..{:?}",
+            "bounds -> {:?}..{:?} x {:?}..{:?} (total_screen: {}, monitor_index: {})",
             self.bounds.left,
             self.bounds.right,
             self.bounds.top,
-            self.bounds.bottom
+            self.bounds.bottom,
+            self.total_screen,
+            self.monitor_index
         );
     }
 
