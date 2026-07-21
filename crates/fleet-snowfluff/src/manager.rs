@@ -98,7 +98,11 @@ pub struct PetManager {
     pub scale: f64,
     pub opacity: f32,
     pub paused: bool,
-    pub click_through: bool,
+    click_through: bool,
+    /// 1 = topmost, 2 = normal + fullscreen-hide, 3 = desktop-only.
+    /// Platform layering (tasks 7/8/9) applies the actual OS behavior;
+    /// only macOS is wired up so far.
+    display_priority: i64,
     rng: StdRng,
     /// `None` when global mouse polling is unavailable -- e.g. on macOS
     /// without Accessibility permission granted. `device_query`'s
@@ -110,6 +114,8 @@ pub struct PetManager {
     was_left_down: bool,
     tick_count: u64,
     voice: VoicePlayer,
+    #[cfg(target_os = "macos")]
+    hidden_by_fullscreen: bool,
 }
 
 impl PetManager {
@@ -141,12 +147,15 @@ impl PetManager {
             opacity: 1.0,
             paused: false,
             click_through: false,
+            display_priority: 1,
             rng: StdRng::from_os_rng(),
             device_state,
             drag_owner: None,
             was_left_down: false,
             tick_count: 0,
             voice,
+            #[cfg(target_os = "macos")]
+            hidden_by_fullscreen: false,
         }
     }
 
@@ -206,6 +215,8 @@ impl PetManager {
             &mut self.rng,
         );
         log::info!("spawned {label} at ({:.1}, {:.1})", pet.state.x, pet.state.y);
+        pet.apply_display_priority(self.display_priority);
+        pet.window.set_ignore_cursor_events(self.click_through).ok();
         self.pets.push(pet);
     }
 
@@ -261,6 +272,32 @@ impl PetManager {
         self.paused = paused;
         for pet in &mut self.pets {
             pet.paused = paused;
+        }
+    }
+
+    pub fn click_through(&self) -> bool { self.click_through }
+
+    /// Toggles real OS-level click-through (`set_ignore_cursor_events`)
+    /// on every pet, not just our own drag-detection gate (task 7/8/9's
+    /// "click-through" requirement -- previously this field only
+    /// suppressed drag start, it never told the OS to pass clicks
+    /// through).
+    pub fn set_click_through(&mut self, enable: bool) {
+        self.click_through = enable;
+        for pet in &self.pets {
+            pet.window.set_ignore_cursor_events(enable).ok();
+        }
+    }
+
+    pub fn display_priority(&self) -> i64 { self.display_priority }
+
+    /// Applies a display-priority mode (1 = topmost, 2 = normal +
+    /// fullscreen-hide, 3 = desktop-only) to every pet immediately.
+    /// Mode 2's continuous fullscreen monitoring happens in `tick`.
+    pub fn set_display_priority(&mut self, mode: i64) {
+        self.display_priority = mode;
+        for pet in &self.pets {
+            pet.apply_display_priority(mode);
         }
     }
 
@@ -329,6 +366,22 @@ impl PetManager {
 
         self.tick_count += 1;
         let log_positions = self.tick_count.is_multiple_of(33); // ~once/second
+
+        // Mode 2's fullscreen-hide needs OS window introspection, which
+        // isn't worth doing every ~30ms tick; check on the same ~1s
+        // cadence as the debug position log (legacy polls every 500ms).
+        #[cfg(target_os = "macos")]
+        if self.display_priority == 2 && log_positions {
+            let is_fullscreen = crate::platform::macos::foreground_window()
+                .map(|w| w.covers(self.bounds))
+                .unwrap_or(false);
+            if is_fullscreen != self.hidden_by_fullscreen {
+                self.hidden_by_fullscreen = is_fullscreen;
+                for pet in &self.pets {
+                    pet.set_visible(!is_fullscreen);
+                }
+            }
+        }
 
         for (idx, pet) in self.pets.iter_mut().enumerate() {
             if Some(idx) == self.drag_owner {

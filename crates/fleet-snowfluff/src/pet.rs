@@ -95,6 +95,37 @@ impl PetWindow {
         self.surface.set_opacity(gpu, opacity);
     }
 
+    /// Applies a display-priority mode: 1 = topmost, 2 = normal (with
+    /// fullscreen-hide handled separately by the manager's periodic
+    /// check, since it needs OS window introspection), 3 = desktop-only.
+    /// Only macOS is wired up (tasks 8.1/8.3); other platforms fall back
+    /// to plain topmost until tasks 7/9 land.
+    pub fn apply_display_priority(&self, mode: i64) {
+        #[cfg(target_os = "macos")]
+        {
+            if mode == 3 {
+                crate::platform::macos::set_desktop_level(&self.window);
+                self.window.set_always_on_top(false).ok();
+            } else {
+                crate::platform::macos::set_normal_level(&self.window);
+                self.window.set_always_on_top(true).ok();
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = mode;
+            self.window.set_always_on_top(true).ok();
+        }
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        if visible {
+            self.window.show().ok();
+        } else {
+            self.window.hide().ok();
+        }
+    }
+
     fn size_for(&self, native_w: u32, native_h: u32) -> PetSize {
         PetSize { w: native_w as f64 * self.scale, h: native_h as f64 * self.scale }
     }
