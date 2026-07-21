@@ -31,8 +31,15 @@ pub fn spawn_startup_check(app: AppHandle) {
         let update = match check(&app).await {
             Ok(Some(update)) => update,
             Ok(None) => return,
+            // Expected, not exceptional, until task group 16 publishes a
+            // first GitHub Release -- the endpoint's latest.json simply
+            // doesn't exist yet, so every startup check fails the same
+            // way. debug! rather than warn! so normal dev use doesn't
+            // look like something's broken; this is worth revisiting
+            // once real releases exist and a failure here would mean
+            // something actually went wrong.
             Err(err) => {
-                log::warn!("startup update check failed: {err}");
+                log::debug!("startup update check failed (expected pre-release): {err}");
                 return;
             }
         };
