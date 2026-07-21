@@ -89,3 +89,9 @@ body {
   opacity: 0.75;
   font-size: 0.9em;
 }
+
+.error {
+  color: #d33;
+  font-size: 0.9em;
+  word-break: break-word;
+}

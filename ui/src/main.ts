@@ -79,8 +79,23 @@ async function render(): Promise<void> {
     });
   }
 
-  await Promise.all([renderPersonalization(), renderUpdate(), renderAbout()]);
+  // Select the default tab immediately, before the panels' content has
+  // loaded -- each panel below fills in independently (and reports its
+  // own error rather than leaving the window blank if one of them
+  // fails), so tab selection must not wait on all three to succeed.
   applyActiveTab();
+
+  await Promise.allSettled([
+    renderPersonalization().catch((err) => renderError("personalization", err)),
+    renderUpdate().catch((err) => renderError("update", err)),
+    renderAbout().catch((err) => renderError("about", err)),
+  ]);
+}
+
+function renderError(tab: Tab, err: unknown): void {
+  const panel = document.querySelector<HTMLElement>(`[data-panel="${tab}"]`)!;
+  console.error(`failed to render ${tab} tab:`, err);
+  panel.innerHTML = `<p class="error">${String(err)}</p>`;
 }
 
 function applyActiveTab(): void {

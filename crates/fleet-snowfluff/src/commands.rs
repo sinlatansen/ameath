@@ -165,6 +165,13 @@ pub fn set_ui_language(
 ) {
     manager.lock().unwrap().set_ui_language(language);
     apply_and_save(&app, &config, |c| c.ui_language = language);
+    // The webview re-renders its own content on a language change, but
+    // the native title bar is Rust-owned and needs updating separately.
+    let title = fleet_snowfluff_core::dictionary(language)
+        .get("settings.window_title")
+        .cloned()
+        .unwrap_or_default();
+    crate::settings_window::refresh_title(&app, &title);
 }
 
 #[tauri::command]

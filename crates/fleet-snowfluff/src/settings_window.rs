@@ -28,3 +28,14 @@ pub fn open_or_focus_settings(app: &AppHandle, title: &str) {
         log::error!("failed to open settings window: {err}");
     }
 }
+
+/// Updates the settings window's title if it's currently open -- called
+/// after a UI-language change so the native title bar (which the
+/// webview's own re-render can't reach) doesn't stay stale until the
+/// window is reopened, per the localization spec's "applies without
+/// restart" requirement.
+pub fn refresh_title(app: &AppHandle, title: &str) {
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        window.set_title(title).ok();
+    }
+}
