@@ -33,7 +33,7 @@ pkgs.mkShell {
 
       hclfmt
       nixfmt-rfc-style
-      nodePackages.prettier
+      prettier
       sleek
       shfmt
       taplo
@@ -53,6 +53,13 @@ pkgs.mkShell {
       gtk3
       libayatana-appindicator
       librsvg
+    ]
+    ++ lib.optionals stdenv.isDarwin [
+      libiconv
+      apple-sdk
+    ]
+    ++ lib.optionals (!stdenv.isDarwin) [
+      cargo-llvm-cov
     ];
 
   shellHook = ''
