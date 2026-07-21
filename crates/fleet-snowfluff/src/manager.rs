@@ -271,7 +271,10 @@ impl PetManager {
             Some(ds) => {
                 let mouse_state = ds.query_pointer();
                 let cursor = (mouse_state.coords.0 as f64, mouse_state.coords.1 as f64);
-                let left_down = mouse_state.button_pressed.first().copied().unwrap_or(false);
+                // device_query's button_pressed is 1-indexed (button
+                // numbers, not array positions) -- index 0 is documented
+                // as always false/meaningless; index 1 is the left button.
+                let left_down = mouse_state.button_pressed.get(1).copied().unwrap_or(false);
                 (cursor, left_down)
             }
             // No mouse polling available: pets still move, just never
