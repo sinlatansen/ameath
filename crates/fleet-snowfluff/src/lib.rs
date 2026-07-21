@@ -3,6 +3,7 @@ pub mod assets;
 pub mod gfx;
 pub mod manager;
 pub mod pet;
+pub mod voice;
 
 use std::{sync::Mutex, time::Duration};
 
@@ -31,6 +32,8 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let mut pet_manager = PetManager::new(app_handle.clone(), default_config.total_screen);
             pet_manager.set_instance_count(1);
+            pet_manager.set_voice_enabled(default_config.voice_enabled);
+            pet_manager.set_voice_volume_percent(default_config.voice_volume);
             app.manage(Mutex::new(pet_manager));
 
             // Same background-thread + run_on_main_thread pattern proven

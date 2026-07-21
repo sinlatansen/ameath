@@ -11,7 +11,7 @@ use std::sync::{
 };
 
 use device_query::DeviceState;
-use fleet_snowfluff_core::{Bounds, MotionSettings, WanderStayMode};
+use fleet_snowfluff_core::{Bounds, MotionSettings, VoiceLanguage, WanderStayMode};
 use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
     assets::assets_dir,
     gfx::{GpuContext, PetSurface},
     pet::PetWindow,
+    voice::VoicePlayer,
 };
 
 const MIN_INSTANCES: usize = fleet_snowfluff_core::swarm::MIN_INSTANCES;
@@ -108,6 +109,7 @@ pub struct PetManager {
     drag_owner: Option<usize>,
     was_left_down: bool,
     tick_count: u64,
+    voice: VoicePlayer,
 }
 
 impl PetManager {
@@ -121,6 +123,7 @@ impl PetManager {
                 );
             })
             .ok();
+        let voice = VoicePlayer::new(&assets_dir().join("voice"), VoiceLanguage::Zh);
 
         Self {
             app,
@@ -143,6 +146,7 @@ impl PetManager {
             drag_owner: None,
             was_left_down: false,
             tick_count: 0,
+            voice,
         }
     }
 
@@ -260,6 +264,22 @@ impl PetManager {
         }
     }
 
+    pub fn set_voice_enabled(&mut self, enabled: bool) { self.voice.set_enabled(enabled); }
+
+    pub fn set_voice_volume_percent(&mut self, percent: i64) {
+        self.voice.set_volume_percent(percent);
+    }
+
+    pub fn set_voice_language(&mut self, language: VoiceLanguage) {
+        self.voice.set_language(language);
+    }
+
+    pub fn voice_language(&self) -> VoiceLanguage { self.voice.active_language() }
+
+    pub fn voice_languages_with_clips(&self) -> &[VoiceLanguage] {
+        self.voice.languages_with_clips()
+    }
+
     /// One iteration of the background tick: polls global mouse state
     /// once (position + left-button) for both follow-mouse targeting and
     /// drag detection (task 6.6 -- Tauri's windowless Window has no
@@ -290,6 +310,7 @@ impl PetManager {
                 if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
                     self.pets[idx].start_drag(cursor);
                     self.drag_owner = Some(idx);
+                    self.voice.play_random();
                 }
             } else if left_released_this_tick {
                 if let Some(idx) = self.drag_owner.take() {
