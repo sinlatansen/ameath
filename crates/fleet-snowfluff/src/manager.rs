@@ -48,6 +48,37 @@ fn monitor_logical_bounds(m: &tauri::window::Monitor) -> Bounds {
     }
 }
 
+/// Converts a physical-pixel point (what `GetCursorPos` -- and so
+/// `device_query`'s Windows backend -- always reports, regardless of
+/// per-monitor DPI awareness) to the logical points every other
+/// coordinate in this codebase uses (`state.x/y`, `Bounds`, window
+/// positions), by finding which monitor the point falls on and
+/// dividing by that monitor's own `scale_factor()`. A single global
+/// factor isn't enough on a multi-monitor setup mixing scale factors
+/// (e.g. a 125% primary next to a 100% secondary) -- that mismatch is
+/// exactly why drag/click/follow-mouse only worked on the 100% monitor
+/// before this existed. Falls back to scale 1.0 (i.e. passes `physical`
+/// through unchanged) if no monitor contains the point, e.g.
+/// transiently during a display reconfiguration.
+#[cfg(target_os = "windows")]
+fn physical_to_logical_cursor(app: &tauri::AppHandle, physical: (f64, f64)) -> (f64, f64) {
+    let scale = app
+        .available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .find(|m| {
+            let pos = m.position();
+            let size = m.size();
+            physical.0 >= pos.x as f64
+                && physical.0 < pos.x as f64 + size.width as f64
+                && physical.1 >= pos.y as f64
+                && physical.1 < pos.y as f64 + size.height as f64
+        })
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+    (physical.0 / scale, physical.1 / scale)
+}
+
 /// Sums every monitor's bounds into one roaming area (legacy's
 /// `total_screen` mode), or confines to a single monitor otherwise:
 /// `monitor_index` into `available_monitors()` if it's in range
@@ -247,6 +278,11 @@ impl PetManager {
             .build()
             .expect("create pet window");
 
+        // Must happen before the wgpu surface is created against this
+        // window -- see the function's own doc comment for why.
+        #[cfg(target_os = "windows")]
+        crate::platform::windows::enable_composition_swapchain(&window);
+
         let raw_surface =
             self.instance.create_surface(window.clone()).expect("create wgpu surface for pet");
 
@@ -441,6 +477,13 @@ impl PetManager {
             Some(ds) => {
                 let mouse_state = ds.query_pointer();
                 let cursor = (mouse_state.coords.0 as f64, mouse_state.coords.1 as f64);
+                // `GetCursorPos` (device_query's Windows backend) always
+                // reports physical pixels, unlike every other coordinate
+                // in this codebase -- convert before it's used for any
+                // hit-testing or motion targeting below, or drag/click/
+                // follow-mouse only work on a monitor at 100% scale.
+                #[cfg(target_os = "windows")]
+                let cursor = physical_to_logical_cursor(&self.app, cursor);
                 // device_query's button_pressed is 1-indexed (button
                 // numbers, not array positions) -- index 0 is documented
                 // as always false/meaningless; index 1 is the left

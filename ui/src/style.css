@@ -63,7 +63,17 @@ body {
   border-bottom: 2px solid transparent;
   background: none;
   box-shadow: none;
-  color: var(--pico-color);
+  /* Pico's own `button` selector redefines the --pico-color *custom
+     property* itself to --pico-primary-inverse (light text meant to
+     sit on the colored background Pico's default buttons have) --
+     referencing var(--pico-color) here would resolve to that same
+     locally-shadowed value even after `background: none` removes the
+     background it was meant to contrast against, leaving light text
+     on Pico's light theme (invisible) and only working in dark mode by
+     coincidence. `inherit` takes the parent `.tabs`/body's actual
+     computed text color instead, bypassing the shadowed variable
+     entirely. */
+  color: inherit;
 }
 
 .tab-button.active {

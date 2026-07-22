@@ -17,12 +17,32 @@ use windows::{
             HiDpi::GetDpiForWindow,
             WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-                GetParent, GetWindowRect, GetWindowThreadProcessId, SendMessageTimeoutW, SetParent,
-                SetWindowPos, HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                GetParent, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
+                SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE,
+                HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                WS_EX_NOREDIRECTIONBITMAP,
             },
         },
     },
 };
+
+/// Sets `WS_EX_NOREDIRECTIONBITMAP` on `window`, which the DirectComposition-
+/// backed transparent surface (design.md D14, task 3.1) requires per
+/// Microsoft's own docs: without it, DXGI creates a normal GDI-redirected
+/// swapchain that doesn't support the alpha-compositing modes wgpu asks
+/// for (`pick_alpha_mode` in gfx.rs), silently falling back to
+/// `CompositeAlphaMode::Opaque` -- an opaque rectangle behind the sprite,
+/// which is exactly what looked like "a box with a shadow" and flickered
+/// on every redraw. Must run before the wgpu surface is created against
+/// this window, since wgpu picks its swapchain creation path by
+/// inspecting the window's style bits at that point.
+pub fn enable_composition_swapchain(window: &tauri::window::Window) {
+    let Some(hwnd) = hwnd_of(window) else { return };
+    unsafe {
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | WS_EX_NOREDIRECTIONBITMAP.0 as isize);
+    }
+}
 
 const WM_TRIGGER_WORKERW: u32 = 0x052c;
 
