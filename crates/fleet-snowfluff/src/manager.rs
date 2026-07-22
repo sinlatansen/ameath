@@ -282,48 +282,35 @@ impl PetManager {
             .title("Fleet Snowfluff")
             .decorations(false)
             .always_on_top(true)
+            .resizable(false)
             .skip_taskbar(true)
-            .position(-10_000.0, -10_000.0);
-        #[cfg(not(target_os = "windows"))]
-        {
-            builder = builder.resizable(false);
-            builder = builder.inner_size(
+            .inner_size(
                 animations.move_right.width as f64 * self.scale,
                 animations.move_right.height as f64 * self.scale,
-            );
-            // Windows renders via GDI/UpdateLayeredWindow instead of a
-            // wgpu swapchain (see platform::windows's doc comment) --
-            // deliberately NOT calling .transparent(true) there, since
-            // that routes through tao's DWM-blur-behind path, which
-            // fights with (and, tested on real hardware, loses to) that
-            // mechanism rather than complementing it. `make_layered`
-            // sets the one style bit actually needed instead.
+            )
+            .position(-10_000.0, -10_000.0);
+        // Windows renders via GDI/UpdateLayeredWindow instead of a wgpu
+        // swapchain (see platform::windows's doc comment) -- deliberately
+        // NOT calling .transparent(true) here, since that routes through
+        // tao's DWM-blur-behind path, which fights with (and, tested on
+        // real hardware, loses to) that mechanism rather than
+        // complementing it. `make_layered` below sets the one style bit
+        // actually needed instead.
+        //
+        // A generously-large fixed creation size was tried here on the
+        // theory that the window's creation-time size was acting as a
+        // ceiling later resizes couldn't grow past -- reverted, since it
+        // caused a new, worse regression (a large window briefly
+        // flashing open on launch) without fixing the underlying
+        // mismatch. See LayeredSurface's own margin instead: rather than
+        // keep chasing an exact size match, the window is deliberately
+        // rendered somewhat larger than the sprite, with the sprite
+        // pinned to its top-left corner, so a size/timing mismatch of a
+        // few percent no longer crops anything visible.
+        #[cfg(not(target_os = "windows"))]
+        {
             builder = builder.background_color(tauri::window::Color(0, 0, 0, 0));
             builder = builder.transparent(true);
-        }
-        // On Windows, screenshots from real hardware showed content
-        // getting cropped by a hard window edge (the desktop visible
-        // through the gap) after rescaling up or crossing to a
-        // differently-scaled monitor -- despite the size math logged as
-        // exactly correct every time. The strong suspect is the
-        // window's *creation-time* size acting as a ceiling later
-        // UpdateLayeredWindow calls can't grow past (resizable(false)
-        // is the most likely mechanism, though tao's own WM_GETMINMAXINFO
-        // handling didn't show an obvious smoking gun on inspection --
-        // so this drops that flag too, not just the size, to cover
-        // whatever the real mechanism turns out to be). Creating at a
-        // generously large fixed size up front -- bigger than
-        // native_gif_size (assets are a couple hundred px) * max scale
-        // (2.0x, constants::scale_options()) * max plausible DPI (2.0,
-        // i.e. 200%) could ever need -- means no later resize is ever
-        // an attempt to grow beyond whatever ceiling might exist, only
-        // ever to shrink from it. The very next tick's real
-        // UpdateLayeredWindow call immediately corrects it to the
-        // actual size before the window is ever shown, so this
-        // placeholder is never visible.
-        #[cfg(target_os = "windows")]
-        {
-            builder = builder.inner_size(2000.0, 2000.0);
         }
         let window = builder.build().expect("create pet window");
 

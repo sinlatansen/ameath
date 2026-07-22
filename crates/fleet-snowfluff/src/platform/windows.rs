@@ -203,6 +203,22 @@ impl Drop for LayeredSurface {
 }
 
 impl LayeredSurface {
+    /// A margin the *window* is rendered larger than the sprite by (on
+    /// every side except top/left -- the sprite is pinned to the
+    /// window's top-left corner, so `state.x/y` keeps meaning exactly
+    /// what it does on every other platform). Real hardware testing
+    /// went through several rounds of DPI/monitor/animation fixes that
+    /// each proved (via logging) the size and position math was exactly
+    /// correct, yet screenshots still showed the sprite cropped by a
+    /// hard window edge -- something between "the numbers we compute"
+    /// and "what Windows actually shows" doesn't line up by a few
+    /// percent, and no fix found the exact mechanism. Rather than keep
+    /// chasing an exact match, the window is deliberately given this
+    /// much breathing room so a small mismatch no longer crops anything
+    /// visible -- the margin itself is fully transparent, so it isn't
+    /// visible when there's no mismatch either.
+    const MARGIN_FACTOR: f64 = 1.1;
+
     /// Returns whether it actually rebuilt the DIB (vs. a same-size
     /// no-op) -- purely so `update` can log the before/after numbers
     /// only when something changes, not every frame.
@@ -273,6 +289,11 @@ impl LayeredSurface {
     /// size need it, or the pet renders at the wrong scale the moment
     /// it's on a different monitor than whichever one the numbers
     /// happened to already be correct for.
+    ///
+    /// The window itself is sized to `scaled_w/h * MARGIN_FACTOR`
+    /// (see that constant's doc) -- the sprite is drawn at its real
+    /// size into the top-left of that larger, otherwise fully
+    /// transparent canvas.
     #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
@@ -298,22 +319,23 @@ impl LayeredSurface {
         // shared with webview/COM machinery) ever resets it, Windows
         // can silently apply its own compatibility bitmap-stretching to
         // this exact UpdateLayeredWindow call regardless of how correct
-        // the numbers we pass it are -- which would explain content
-        // staying visibly wrong on one monitor even though every value
-        // logged below is provably right. Costs nothing to set this
-        // again right before the call that actually needs it.
+        // the numbers we pass it are.
         unsafe {
             let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         }
 
         let (dpi_scale, phys_x, phys_y) = resolve_monitor_scale_and_position(window, hwnd, x, y);
-        let physical_w = ((scaled_w as f64) * dpi_scale).round() as u32;
-        let physical_h = ((scaled_h as f64) * dpi_scale).round() as u32;
-        if physical_w == 0 || physical_h == 0 {
+        let box_w = (scaled_w as f64 * Self::MARGIN_FACTOR).round() as u32;
+        let box_h = (scaled_h as f64 * Self::MARGIN_FACTOR).round() as u32;
+        let physical_box_w = (box_w as f64 * dpi_scale).round() as u32;
+        let physical_box_h = (box_h as f64 * dpi_scale).round() as u32;
+        let physical_content_w = (scaled_w as f64 * dpi_scale).round() as u32;
+        let physical_content_h = (scaled_h as f64 * dpi_scale).round() as u32;
+        if physical_box_w == 0 || physical_box_h == 0 {
             return;
         }
 
-        if self.ensure_size(physical_w, physical_h) {
+        if self.ensure_size(physical_box_w, physical_box_h) {
             // Windows' own idea of this window's current DPI, for
             // comparison against `scale` (derived independently from
             // the monitor lookup above) -- if these ever disagree,
@@ -323,7 +345,9 @@ impl LayeredSurface {
             log::info!(
                 "layered surface resize: scale={dpi_scale} hwnd_dpi={hwnd_dpi} \
                  frame={frame_w}x{frame_h} scaled(logical)={scaled_w}x{scaled_h} \
-                 physical={physical_w}x{physical_h} pos=({phys_x}, {phys_y})"
+                 box(physical)={physical_box_w}x{physical_box_h} \
+                 content(physical)={physical_content_w}x{physical_content_h} pos=({phys_x}, \
+                 {phys_y})"
             );
         }
         if self.pixels.is_null() {
@@ -331,14 +355,25 @@ impl LayeredSurface {
         }
 
         let dst = unsafe {
-            std::slice::from_raw_parts_mut(self.pixels, (physical_w * physical_h * 4) as usize)
+            std::slice::from_raw_parts_mut(
+                self.pixels,
+                (physical_box_w * physical_box_h * 4) as usize,
+            )
         };
-        for dst_y in 0..physical_h {
-            let src_y = (dst_y * frame_h / physical_h).min(frame_h - 1);
-            for dst_x in 0..physical_w {
-                let src_x = (dst_x * frame_w / physical_w).min(frame_w - 1);
+        // Fully transparent margin by default; only the top-left
+        // content_w x content_h region gets real pixels below. Zeroed
+        // unconditionally (not just for the newly-grown area on an
+        // `ensure_size` rebuild) since the content region's own size
+        // can shrink frame to frame (a smaller cue, a rescale down),
+        // which would otherwise leave stale opaque pixels from a
+        // previous, larger frame sitting in what's now margin.
+        dst.fill(0);
+        for dst_y in 0..physical_content_h {
+            let src_y = (dst_y * frame_h / physical_content_h).min(frame_h - 1);
+            for dst_x in 0..physical_content_w {
+                let src_x = (dst_x * frame_w / physical_content_w).min(frame_w - 1);
                 let src_off = ((src_y * frame_w + src_x) * 4) as usize;
-                let dst_off = ((dst_y * physical_w + dst_x) * 4) as usize;
+                let dst_off = ((dst_y * physical_box_w + dst_x) * 4) as usize;
                 let (r, g, b, a) = (
                     frame_rgba[src_off] as u32,
                     frame_rgba[src_off + 1] as u32,
@@ -355,7 +390,7 @@ impl LayeredSurface {
         }
 
         let dst_pos = POINT { x: phys_x, y: phys_y };
-        let size = SIZE { cx: physical_w as i32, cy: physical_h as i32 };
+        let size = SIZE { cx: physical_box_w as i32, cy: physical_box_h as i32 };
         let src_pos = POINT { x: 0, y: 0 };
         let blend = BLENDFUNCTION {
             BlendOp: AC_SRC_OVER as u8,
