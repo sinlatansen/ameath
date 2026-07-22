@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum VoiceLanguage {
-    #[default]
     Zh,
+    #[default]
     Ja,
     En,
     Ko,

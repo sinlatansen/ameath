@@ -150,7 +150,11 @@ impl PetManager {
                 );
             })
             .ok();
-        let voice = VoicePlayer::new(&assets_dir().join("voice"), VoiceLanguage::Zh);
+        // Bootstrap value only -- lib.rs's setup overrides it with the
+        // real config's voice_language immediately after construction,
+        // same pattern as PetManager's other Config::default()-seeded
+        // fields.
+        let voice = VoicePlayer::new(&assets_dir().join("voice"), VoiceLanguage::default());
 
         Self {
             app,

@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn corrupt_json_yields_defaults() {
         let config = load_from_str("{not valid json", &all_voice_languages());
-        assert_eq!(config, Config { voice_language: VoiceLanguage::Zh, ..Config::default() });
+        assert_eq!(config, Config::default());
     }
 
     #[test]
@@ -291,7 +291,11 @@ mod tests {
         assert!(config.click_through);
         assert_eq!(config.instance_count, 3);
         assert_eq!(config.ui_language, UiLanguage::Ja);
-        assert_eq!(config.voice_language, VoiceLanguage::Zh);
+        // Legacy never had a voice_language field, so migration always
+        // seeds it via VoiceLanguage::default() (Ja) -- coincidentally
+        // the same variant name as the detected UiLanguage above, but
+        // an unrelated enum/value.
+        assert_eq!(config.voice_language, VoiceLanguage::Ja);
     }
 
     #[test]
