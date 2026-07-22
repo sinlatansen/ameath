@@ -118,6 +118,28 @@ fn compute_bounds(app: &tauri::AppHandle, total_screen: bool, monitor_index: i64
     }
 }
 
+/// On Windows, explicitly requests the DX12 backend rather than letting
+/// wgpu pick whichever backend it finds first. Found via testing (a
+/// real log, not a guess): on at least one Windows machine wgpu picked
+/// Vulkan, whose win32 surface only advertised `[Opaque, Inherit]`
+/// composite alpha modes -- no real per-pixel transparency support at
+/// all, which is why the "transparent" pet windows rendered with a
+/// solid black background regardless of any window-style tweaks (see
+/// `gfx.rs`'s `pick_alpha_mode`). DX12 has mature DirectComposition
+/// integration and is far more likely to expose a working alpha mode
+/// for this. Every other platform keeps wgpu's own default selection
+/// (Metal on macOS, Vulkan on Linux -- both already confirmed working).
+fn wgpu_instance_descriptor() -> wgpu::InstanceDescriptor {
+    #[cfg(target_os = "windows")]
+    {
+        wgpu::InstanceDescriptor { backends: wgpu::Backends::DX12, ..Default::default() }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        wgpu::InstanceDescriptor::default()
+    }
+}
+
 pub struct PetManager {
     app: tauri::AppHandle,
     instance: wgpu::Instance,
@@ -194,7 +216,7 @@ impl PetManager {
 
         Self {
             app,
-            instance: wgpu::Instance::new(&wgpu::InstanceDescriptor::default()),
+            instance: wgpu::Instance::new(&wgpu_instance_descriptor()),
             gpu: None,
             animations: None,
             pets: Vec::new(),
