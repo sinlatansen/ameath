@@ -1,4 +1,4 @@
-# Fleet Snowfluff (飞行雪绒)
+# Fleet Snowfluff (飛行雪绒)
 
 A cross-platform desktop pet, rewritten in Rust from the original Python
 project [Ameath](https://gitee.com/lzy-buaa-jdi/ameath). Fleet Snowfluff
@@ -22,9 +22,8 @@ running natively on **Windows**, **macOS**, and **Ubuntu**.
   right-click quick menu
 - UI in Traditional Chinese, Simplified Chinese, English, Japanese, and
   Korean, detected from the system locale
-- Switchable voice-line language (Chinese included at launch; Japanese,
-  English, and Korean packs are supported but not yet recorded), plus a
-  volume control
+- Switchable voice-line language with Chinese, Japanese, English, and
+  Korean clips, plus a volume control
 - Signed auto-updates via GitHub Releases
 
 The music player from the original Ameath app has been intentionally

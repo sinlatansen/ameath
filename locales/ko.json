@@ -43,7 +43,7 @@
 
   "about.version": "버전 {version}",
   "about.credits_heading": "크레딧",
-  "about.credits_original": "Fleet Snowfluff는 {fugu_link}가 제작한 팬메이드 데스크톱 펫 {ameath_link}를 Rust로 다시 만든 버전입니다. 이 애플리케이션에 포함된 모든 캐릭터 아트, 애니메이션, 음성은 해당 프로젝트에서 비롯되었습니다.",
+  "about.credits_original": "Fleet Snowfluff는 {fugu_link}가 제작한 팬메이드 데스크톱 펫 {ameath_link}를 Rust로 다시 만든 버전입니다. 이 애플리케이션에 포함된 모든 캐릭터 아트, 애니메이션, 해당 프로젝트에서 비롯되었습니다.",
   "about.credits_rewrite": "Rust 재작성 버전(아키텍처, 렌더링, 플랫폼 지원)은 {author_link}이 관리합니다. 소스 코드: {repo_link}.",
   "about.license_notice": "코드는 MIT 라이선스로 제공됩니다. 번들로 포함된 캐릭터 리소스(GIF 애니메이션, 음성 클립)는 이 허가 범위에 포함되지 않습니다.",
   "about.asset_disclaimer": "펫 캐릭터와 관련 리소스의 저작권은 쿠로 게임즈(Kuro Games)의 명조(Wuthering Waves)에 있습니다. 이 프로젝트는 비공식 팬 프로젝트이며 쿠로 게임즈와 제휴하거나 그들의 승인을 받지 않았습니다. 정당한 저작권 침해 신고가 접수되면 해당 리소스를 즉시 삭제합니다.",

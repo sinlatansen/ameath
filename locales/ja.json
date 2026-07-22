@@ -43,7 +43,7 @@
 
   "about.version": "バージョン {version}",
   "about.credits_heading": "クレジット",
-  "about.credits_original": "Fleet Snowfluff は、{fugu_link} 氏が制作したファンメイドのデスクトップペット「{ameath_link}」を Rust で書き直したものです。本アプリに含まれるすべてのキャラクターイラスト、アニメーション、ボイスは同プロジェクトに由来します。",
+  "about.credits_original": "Fleet Snowfluff は、{fugu_link} 氏が制作したファンメイドのデスクトップペット「{ameath_link}」を Rust で書き直したものです。本アプリに含まれるすべてのキャラクターイラスト、アニメーションは同プロジェクトに由来します。",
   "about.credits_rewrite": "Rust 版の書き直し（アーキテクチャ、描画、プラットフォーム対応）は {author_link} が保守しています。ソースコード：{repo_link}。",
   "about.license_notice": "コードは MIT ライセンスの下で提供されます。同梱のキャラクター素材（GIF アニメーション、ボイス）はこの許諾範囲に含まれません。",
   "about.asset_disclaimer": "ペットキャラクターおよびその素材の著作権は、Kuro Games の『鳴潮（Wuthering Waves）』に帰属します。本プロジェクトは非公式のファン制作物であり、Kuro Games とは提携・承認関係にありません。正当な権利侵害の申し立てを受けた場合、該当素材は速やかに削除します。",
