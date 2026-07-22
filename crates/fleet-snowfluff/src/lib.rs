@@ -18,6 +18,8 @@ use fleet_snowfluff_core::{constants::MOVE_INTERVAL_MS, Config, WanderStayMode};
 use manager::PetManager;
 use tauri::Manager;
 
+shadow_rs::shadow!(build);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -28,6 +30,7 @@ pub fn run() {
         // rather than #[cfg]-gated, since calling it isn't needed.
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            commands::build_commit,
             commands::locale_dictionary,
             commands::get_personalization,
             commands::set_scale_index,

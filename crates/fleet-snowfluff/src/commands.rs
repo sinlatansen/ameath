@@ -18,6 +18,11 @@ use tauri::{AppHandle, State};
 
 use crate::{config_store, manager::PetManager};
 
+/// The short git commit this binary was built from (via shadow-rs,
+/// build.rs), shown on the about tab as "Build: {commit}".
+#[tauri::command]
+pub fn build_commit() -> &'static str { crate::build::SHORT_COMMIT }
+
 /// Returns the active UI language's locale dictionary as raw JSON
 /// (task 11.2) for the settings webview to `JSON.parse` and read
 /// strings from directly.

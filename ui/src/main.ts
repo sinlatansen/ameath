@@ -361,12 +361,16 @@ function externalLink(url: string, label: string): string {
 
 async function renderAbout(): Promise<void> {
   const panel = document.querySelector<HTMLElement>('[data-panel="about"]')!;
-  const version = await getVersion();
+  const [version, commit] = await Promise.all([getVersion(), invoke<string>("build_commit")]);
 
   panel.innerHTML = `
+    <img class="app-icon" src="/app-icon.png" alt="" />
     <p class="version">${t("about.version", { version })}</p>
+    <p class="build">${t("about.build", { commit })}</p>
+    <hr />
     <p>${t("about.license_notice")}</p>
     <p class="disclaimer">${t("about.asset_disclaimer")}</p>
+    <hr />
     <h3>${t("about.credits_heading")}</h3>
     <p>${t("about.credits_original", { ameath_link: externalLink(AMEATH_URL, "Ameath"), fugu_link: externalLink(FUGU_URL, "-fugu-") })}</p>
     <p>${t("about.credits_rewrite", { author_link: externalLink(AUTHOR_URL, "kagetsuki1997"), repo_link: externalLink(REPO_URL, "github.com/kagetsuki1997/fleet-snowfluff") })}</p>

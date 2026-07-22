@@ -28,6 +28,60 @@
     var(--pico-font-family-sans-serif);
 }
 
+/* Legacy Ameath's own settings/quick-menu palette (`legacy/ameath/
+   quick_menu.py`'s `self.colors`), ported here so this window matches
+   it rather than following the OS's light/dark preference -- fixed
+   pink-and-white regardless of system theme, same as legacy always
+   was. Overriding Pico's variables (rather than hand-styling each
+   element) is what makes every Pico-provided component -- buttons,
+   inputs, selects, links, `hr` -- pick this up for free. This block is
+   unconditional (not inside a `prefers-color-scheme` query), and it's
+   loaded after pico.min.css, so it wins the cascade over Pico's own
+   dark-mode block regardless of the OS setting. */
+:root {
+  color-scheme: light;
+  --pico-background-color: #fff1f6;
+  --pico-color: #4a2a3a;
+  --pico-h1-color: #4a2a3a;
+  --pico-h2-color: #4a2a3a;
+  --pico-h3-color: #4a2a3a;
+  --pico-h4-color: #4a2a3a;
+  --pico-h5-color: #4a2a3a;
+  --pico-h6-color: #4a2a3a;
+  --pico-muted-color: #7a5564;
+  --pico-muted-border-color: #f3c2d4;
+  --pico-border-color: #f3c2d4;
+  --pico-primary: #ff69b4;
+  --pico-primary-background: #ff69b4;
+  --pico-primary-border: #ff69b4;
+  --pico-primary-hover: #e84d8e;
+  --pico-primary-hover-background: #e84d8e;
+  --pico-primary-hover-border: #e84d8e;
+  --pico-primary-focus: rgb(255 105 180 / 35%);
+  --pico-primary-inverse: #fff;
+  --pico-primary-underline: #ff69b4;
+  --pico-secondary-background: #ffe1ee;
+  --pico-secondary-border: #f3c2d4;
+  --pico-secondary-hover-background: #f3c2d4;
+  --pico-secondary-hover-border: #f3c2d4;
+  --pico-secondary-inverse: #4a2a3a;
+  --pico-card-background-color: #fff;
+  --pico-card-sectioning-background-color: #fff;
+  --pico-card-border-color: #f3c2d4;
+  --pico-form-element-background-color: #fff;
+  --pico-form-element-border-color: #f3c2d4;
+  --pico-form-element-color: #4a2a3a;
+  --pico-form-element-placeholder-color: #7a5564;
+  --pico-form-element-active-background-color: #fff;
+  --pico-form-element-active-border-color: #ff69b4;
+  --pico-form-element-selected-background-color: #ffe1ee;
+  --pico-switch-background-color: #f3c2d4;
+  --pico-switch-checked-background-color: #ff69b4;
+  --pico-range-border-color: #f3c2d4;
+  --pico-range-thumb-color: #ff69b4;
+  --pico-range-thumb-border-color: #ff69b4;
+}
+
 html {
   font-size: 14px;
 }
@@ -122,13 +176,30 @@ body {
   margin: 0;
 }
 
+.panel[data-panel="about"] {
+  align-items: center;
+  text-align: center;
+}
+
 .panel[data-panel="about"] p,
-.panel[data-panel="about"] h3 {
+.panel[data-panel="about"] h3,
+.panel[data-panel="about"] hr {
   margin: 0;
+  width: 100%;
+}
+
+.panel[data-panel="about"] .app-icon {
+  width: 64px;
+  height: 64px;
 }
 
 .panel[data-panel="about"] .version {
   font-weight: 600;
+}
+
+.panel[data-panel="about"] .build {
+  opacity: 0.75;
+  font-size: 0.85em;
 }
 
 .panel[data-panel="about"] .disclaimer {

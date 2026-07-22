@@ -42,6 +42,7 @@
   "language.ko": "韓国語",
 
   "about.version": "バージョン {version}",
+  "about.build": "ビルド: {commit}",
   "about.credits_heading": "クレジット",
   "about.credits_original": "Fleet Snowfluff は、{fugu_link} 氏が制作したファンメイドのデスクトップペット「{ameath_link}」を Rust で書き直したものです。本アプリに含まれるすべてのキャラクターイラスト、アニメーションは同プロジェクトに由来します。",
   "about.credits_rewrite": "Rust 版の書き直し（アーキテクチャ、描画、プラットフォーム対応）は {author_link} が保守しています。ソースコード：{repo_link}。",

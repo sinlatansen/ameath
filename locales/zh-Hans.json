@@ -42,6 +42,7 @@
   "language.ko": "韩文",
 
   "about.version": "版本 {version}",
+  "about.build": "构建：{commit}",
   "about.credits_heading": "鸣谢",
   "about.credits_original": "飞行雪绒（Fleet Snowfluff）是桌面宠物 {ameath_link} 的 Rust 重写版，原作者为 {fugu_link}。本应用中包含的所有角色美术、动画均来自该项目。",
   "about.credits_rewrite": "Rust 重写版本（架构、渲染与平台适配）由 {author_link} 维护。源代码：{repo_link}。",

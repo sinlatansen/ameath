@@ -42,6 +42,7 @@
   "language.ko": "한국어",
 
   "about.version": "버전 {version}",
+  "about.build": "빌드: {commit}",
   "about.credits_heading": "크레딧",
   "about.credits_original": "Fleet Snowfluff는 {fugu_link}가 제작한 팬메이드 데스크톱 펫 {ameath_link}를 Rust로 다시 만든 버전입니다. 이 애플리케이션에 포함된 모든 캐릭터 아트, 애니메이션, 해당 프로젝트에서 비롯되었습니다.",
   "about.credits_rewrite": "Rust 재작성 버전(아키텍처, 렌더링, 플랫폼 지원)은 {author_link}이 관리합니다. 소스 코드: {repo_link}.",

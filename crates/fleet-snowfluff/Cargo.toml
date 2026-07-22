@@ -13,6 +13,7 @@ name       = "fleet_snowfluff_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+shadow-rs   = { workspace = true, features = ["build"] }
 tauri-build = { workspace = true }
 
 [dependencies]
@@ -26,6 +27,7 @@ rodio                  = { workspace = true }
 rust-embed             = { workspace = true }
 serde                  = { workspace = true }
 serde_json             = { workspace = true }
+shadow-rs              = { workspace = true }
 tauri                  = { workspace = true }
 tauri-plugin-autostart = { workspace = true }
 tauri-plugin-log       = { workspace = true }

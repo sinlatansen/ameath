@@ -42,6 +42,7 @@
   "language.ko": "韓文",
 
   "about.version": "版本 {version}",
+  "about.build": "建置：{commit}",
   "about.credits_heading": "致謝",
   "about.credits_original": "飛行雪絨（Fleet Snowfluff）是桌面寵物 {ameath_link} 的 Rust 重寫版，原作者為 {fugu_link}。本應用程式中包含的所有角色美術、動畫，皆來自該專案。",
   "about.credits_rewrite": "Rust 重寫版本（架構、繪製與平台支援）由 {author_link} 維護。原始碼：{repo_link}。",
