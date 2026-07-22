@@ -17,11 +17,11 @@ build:
 # enabled correctly (see settings_window.rs for why that matters) and
 # the frontend gets built; --no-bundle skips NSIS/MSI packaging since
 # this is just meant to be copied over and run directly, not installed.
+# GIFs and voice clips are embedded into the binary itself (assets.rs),
+# so the .exe alone is the whole artifact -- nothing else to copy.
 build-windows:
     cd crates/fleet-snowfluff && nix develop -c cargo tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin --no-bundle
-    rm -rf target/x86_64-pc-windows-msvc/release/assets
-    cp -r assets target/x86_64-pc-windows-msvc/release/assets
-    @echo "Portable build ready: target/x86_64-pc-windows-msvc/release/ -- copy that whole folder to Windows and run fleet-snowfluff.exe"
+    @echo "Portable build ready: target/x86_64-pc-windows-msvc/release/fleet-snowfluff.exe -- copy that one file to Windows and run it"
 
 test:
     cargo test --workspace

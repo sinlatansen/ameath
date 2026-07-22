@@ -16,7 +16,6 @@ use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{
     animation::{load_animation_set, AnimationSet},
-    assets::assets_dir,
     gfx::{GpuContext, PetSurface},
     pet::PetWindow,
     voice::VoicePlayer,
@@ -154,7 +153,7 @@ impl PetManager {
         // real config's voice_language immediately after construction,
         // same pattern as PetManager's other Config::default()-seeded
         // fields.
-        let voice = VoicePlayer::new(&assets_dir().join("voice"), VoiceLanguage::default());
+        let voice = VoicePlayer::new(VoiceLanguage::default());
 
         Self {
             app,
@@ -195,7 +194,7 @@ impl PetManager {
 
     fn ensure_animations(&mut self) -> Arc<AnimationSet> {
         if self.animations.is_none() {
-            self.animations = Some(Arc::new(load_animation_set(&assets_dir().join("gifs"))));
+            self.animations = Some(Arc::new(load_animation_set()));
         }
         self.animations.clone().unwrap()
     }

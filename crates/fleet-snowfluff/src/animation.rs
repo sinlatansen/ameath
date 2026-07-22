@@ -3,9 +3,11 @@
 //! resizing the *window*, not by re-rasterizing frames, so changing scale
 //! is just a resize, not a reload.
 
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use image::{AnimationDecoder, RgbaImage};
+
+use crate::assets::gif_bytes;
 
 #[derive(Debug, Clone)]
 pub struct AnimationFrame {
@@ -82,14 +84,14 @@ impl AnimationSet {
     }
 }
 
-fn decode_gif_frames(path: &Path) -> Vec<(RgbaImage, Duration)> {
-    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("failed to read {path:?}: {e}"));
+fn decode_gif_frames(name: &str) -> Vec<(RgbaImage, Duration)> {
+    let bytes = gif_bytes(name);
     let decoder = image::codecs::gif::GifDecoder::new(std::io::Cursor::new(bytes))
-        .unwrap_or_else(|e| panic!("failed to decode {path:?}: {e}"));
+        .unwrap_or_else(|e| panic!("failed to decode gifs/{name}: {e}"));
     decoder
         .into_frames()
         .collect_frames()
-        .unwrap_or_else(|e| panic!("failed to collect frames from {path:?}: {e}"))
+        .unwrap_or_else(|e| panic!("failed to collect frames from gifs/{name}: {e}"))
         .into_iter()
         .map(|frame| {
             let delay: Duration = frame.delay().into();
@@ -98,21 +100,21 @@ fn decode_gif_frames(path: &Path) -> Vec<(RgbaImage, Duration)> {
         .collect()
 }
 
-fn load_clip(gifs_dir: &Path, filename: &str) -> AnimationClip {
-    AnimationClip::from_rgba_frames(decode_gif_frames(&gifs_dir.join(filename)))
+fn load_clip(name: &str) -> AnimationClip {
+    AnimationClip::from_rgba_frames(decode_gif_frames(name))
 }
 
 /// Loads every animation the pet needs, matching legacy's `__init__`
 /// asset loading (move/idle1-4/drag/idle2-as-paused/screen1-7).
-pub fn load_animation_set(gifs_dir: &Path) -> AnimationSet {
-    let move_source = decode_gif_frames(&gifs_dir.join("move.gif"));
+pub fn load_animation_set() -> AnimationSet {
+    let move_source = decode_gif_frames("move.gif");
     let move_right = AnimationClip::from_rgba_frames(move_source.clone());
     let move_left = move_right.flipped_horizontally(&move_source);
 
-    let idle = (1..=4).map(|i| load_clip(gifs_dir, &format!("idle{i}.gif"))).collect();
-    let screen = (1..=7).map(|i| load_clip(gifs_dir, &format!("screen{i}.gif"))).collect();
-    let drag = load_clip(gifs_dir, "drag.gif");
-    let paused = load_clip(gifs_dir, "idle2.gif");
+    let idle = (1..=4).map(|i| load_clip(&format!("idle{i}.gif"))).collect();
+    let screen = (1..=7).map(|i| load_clip(&format!("screen{i}.gif"))).collect();
+    let drag = load_clip("drag.gif");
+    let paused = load_clip("idle2.gif");
 
     AnimationSet { move_right, move_left, idle, drag, paused, screen }
 }
