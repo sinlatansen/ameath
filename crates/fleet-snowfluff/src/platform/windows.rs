@@ -42,7 +42,10 @@ use windows::{
             DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
         },
         UI::{
-            HiDpi::GetDpiForWindow,
+            HiDpi::{
+                GetDpiForWindow, SetThreadDpiAwarenessContext,
+                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+            },
             WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
                 GetParent, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
@@ -268,6 +271,21 @@ impl LayeredSurface {
             return;
         }
 
+        // Defensive: the process is already declared Per-Monitor-V2 DPI
+        // aware (tao does this once at startup), which should cover
+        // every thread -- but DPI awareness in Windows also has a
+        // *per-thread* override, and if anything on this thread (main,
+        // shared with webview/COM machinery) ever resets it, Windows
+        // can silently apply its own compatibility bitmap-stretching to
+        // this exact UpdateLayeredWindow call regardless of how correct
+        // the numbers we pass it are -- which would explain content
+        // staying visibly wrong on one monitor even though every value
+        // logged below is provably right. Costs nothing to set this
+        // again right before the call that actually needs it.
+        unsafe {
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+
         let (dpi_scale, phys_x, phys_y) = resolve_monitor_scale_and_position(window, hwnd, x, y);
         let physical_w = ((scaled_w as f64) * dpi_scale).round() as u32;
         let physical_h = ((scaled_h as f64) * dpi_scale).round() as u32;
@@ -276,10 +294,16 @@ impl LayeredSurface {
         }
 
         if self.ensure_size(physical_w, physical_h) {
+            // Windows' own idea of this window's current DPI, for
+            // comparison against `scale` (derived independently from
+            // the monitor lookup above) -- if these ever disagree,
+            // that's Windows applying some compatibility scaling of its
+            // own on top of what we're correctly computing.
+            let hwnd_dpi = unsafe { GetDpiForWindow(hwnd) };
             log::info!(
-                "layered surface resize: scale={dpi_scale} frame={frame_w}x{frame_h} \
-                 scaled(logical)={scaled_w}x{scaled_h} physical={physical_w}x{physical_h} \
-                 pos=({phys_x}, {phys_y})"
+                "layered surface resize: scale={dpi_scale} hwnd_dpi={hwnd_dpi} \
+                 frame={frame_w}x{frame_h} scaled(logical)={scaled_w}x{scaled_h} \
+                 physical={physical_w}x{physical_h} pos=({phys_x}, {phys_y})"
             );
         }
         if self.pixels.is_null() {
