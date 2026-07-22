@@ -217,13 +217,19 @@ impl LayeredSurface {
     /// much breathing room so a small mismatch no longer crops anything
     /// visible -- the margin itself is fully transparent, so it isn't
     /// visible when there's no mismatch either.
-    // Bumped way up (from 1.1) purely as a diagnostic: the 10% margin
-    // made no visible difference at all to the reported cropping, which
-    // means either the real mismatch is much bigger than 10%, or this
-    // isn't actually a size problem. This is deliberately wasteful
-    // (3x the canvas area) and not meant to ship -- it's here to find
-    // out which of those two is true before spending more effort on
-    // either theory.
+    // 1.1x wasn't enough to stop real-hardware cropping; 3.0x confirmed
+    // fully eliminates it (tested on both the 125% and 100% DPI
+    // monitors, across rescale and drag-between-monitors). The exact
+    // Windows-side mechanism that needs this much slack was never
+    // pinned down despite ruling out the DPI-oscillation, GDI-deletion,
+    // DWM-transition, and thread-DPI-awareness theories in turn -- the
+    // content-sampling loop below always draws the *complete* source
+    // frame into its target rect with no cropping of its own, so
+    // whatever clips the visible result happens after this code hands
+    // the bitmap to `UpdateLayeredWindow`. Given the DIB is only ~4
+    // bytes/pixel and measured full-app memory stayed at 37-45MB with
+    // this margin in place, paying for headroom here is cheap enough
+    // that further root-causing isn't worth it right now.
     const MARGIN_FACTOR: f64 = 3.0;
 
     /// Returns whether it actually rebuilt the DIB (vs. a same-size
