@@ -161,9 +161,14 @@ impl LayeredSurface {
     /// here, nearest-neighbor to match `gfx.rs`'s sampler filter mode),
     /// converts to premultiplied BGRA (what `AC_SRC_ALPHA` requires),
     /// and blits via `UpdateLayeredWindow` at logical position `(x, y)`
-    /// converted to this window's own physical pixels -- a raw Win32
-    /// API call that, unlike every other window-position call in this
-    /// codebase, isn't DPI-aware on its own.
+    /// -- converted, like `scaled_w`/`scaled_h`, to this window's own
+    /// physical pixels first. `UpdateLayeredWindow` isn't DPI-aware on
+    /// its own (unlike every other window call in this codebase, which
+    /// goes through Tauri's `Position::Logical`/`Size::Logical` and
+    /// gets this conversion for free) -- both the position *and* the
+    /// size need it, or the pet renders at the wrong scale the moment
+    /// it's on a different monitor than whichever one the numbers
+    /// happened to already be correct for.
     #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
@@ -181,20 +186,29 @@ impl LayeredSurface {
         if scaled_w == 0 || scaled_h == 0 || frame_w == 0 || frame_h == 0 {
             return;
         }
-        self.ensure_size(scaled_w, scaled_h);
+
+        let dpi = unsafe { GetDpiForWindow(hwnd) };
+        let dpi_scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
+        let physical_w = ((scaled_w as f64) * dpi_scale).round() as u32;
+        let physical_h = ((scaled_h as f64) * dpi_scale).round() as u32;
+        if physical_w == 0 || physical_h == 0 {
+            return;
+        }
+
+        self.ensure_size(physical_w, physical_h);
         if self.pixels.is_null() {
             return;
         }
 
         let dst = unsafe {
-            std::slice::from_raw_parts_mut(self.pixels, (scaled_w * scaled_h * 4) as usize)
+            std::slice::from_raw_parts_mut(self.pixels, (physical_w * physical_h * 4) as usize)
         };
-        for dst_y in 0..scaled_h {
-            let src_y = (dst_y * frame_h / scaled_h).min(frame_h - 1);
-            for dst_x in 0..scaled_w {
-                let src_x = (dst_x * frame_w / scaled_w).min(frame_w - 1);
+        for dst_y in 0..physical_h {
+            let src_y = (dst_y * frame_h / physical_h).min(frame_h - 1);
+            for dst_x in 0..physical_w {
+                let src_x = (dst_x * frame_w / physical_w).min(frame_w - 1);
                 let src_off = ((src_y * frame_w + src_x) * 4) as usize;
-                let dst_off = ((dst_y * scaled_w + dst_x) * 4) as usize;
+                let dst_off = ((dst_y * physical_w + dst_x) * 4) as usize;
                 let (r, g, b, a) = (
                     frame_rgba[src_off] as u32,
                     frame_rgba[src_off + 1] as u32,
@@ -210,10 +224,9 @@ impl LayeredSurface {
             }
         }
 
-        let dpi = unsafe { GetDpiForWindow(hwnd) };
-        let scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
-        let dst_pos = POINT { x: (x * scale).round() as i32, y: (y * scale).round() as i32 };
-        let size = SIZE { cx: scaled_w as i32, cy: scaled_h as i32 };
+        let dst_pos =
+            POINT { x: (x * dpi_scale).round() as i32, y: (y * dpi_scale).round() as i32 };
+        let size = SIZE { cx: physical_w as i32, cy: physical_h as i32 };
         let src_pos = POINT { x: 0, y: 0 };
         let blend = BLENDFUNCTION {
             BlendOp: AC_SRC_OVER as u8,
