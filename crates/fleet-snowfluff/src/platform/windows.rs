@@ -39,7 +39,7 @@ use windows::{
         Graphics::Gdi::{
             CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, SelectObject,
             AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION,
-            DIB_RGB_COLORS, HBITMAP, HDC,
+            DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
         },
         UI::{
             HiDpi::GetDpiForWindow,
@@ -86,6 +86,16 @@ pub fn make_layered(window: &tauri::window::Window) {
 pub struct LayeredSurface {
     mem_dc: HDC,
     bitmap: HBITMAP,
+    /// The 1x1 monochrome stub bitmap `CreateCompatibleDC` selects into
+    /// a fresh memory DC by default (returned by the first
+    /// `SelectObject` call) -- saved so it can be selected back in
+    /// before deleting our own bitmap on a resize or drop. Deleting a
+    /// GDI object while it's still selected into a DC is undefined
+    /// behavior per Microsoft's own docs; this is what left stale or
+    /// corrupted content on screen (wrong scale, cropped edges) until
+    /// some unrelated event -- e.g. a monitor change -- forced a full
+    /// recomposite that happened to paper over it.
+    default_bitmap: HGDIOBJ,
     pixels: *mut u8,
     width: u32,
     height: u32,
@@ -103,6 +113,9 @@ impl Drop for LayeredSurface {
     fn drop(&mut self) {
         unsafe {
             if !self.bitmap.is_invalid() {
+                if !self.default_bitmap.is_invalid() {
+                    let _ = SelectObject(self.mem_dc, self.default_bitmap);
+                }
                 let _ = DeleteObject(self.bitmap.into());
             }
             if !self.mem_dc.is_invalid() {
@@ -118,11 +131,16 @@ impl LayeredSurface {
             return;
         }
         unsafe {
-            if !self.bitmap.is_invalid() {
-                let _ = DeleteObject(self.bitmap.into());
-            }
             if self.mem_dc.is_invalid() {
                 self.mem_dc = CreateCompatibleDC(None);
+            }
+            if !self.bitmap.is_invalid() {
+                // Restore whatever was selected into the DC before our
+                // own bitmap so deleting it below is well-defined.
+                if !self.default_bitmap.is_invalid() {
+                    let _ = SelectObject(self.mem_dc, self.default_bitmap);
+                }
+                let _ = DeleteObject(self.bitmap.into());
             }
             let bmi = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
@@ -145,7 +163,12 @@ impl LayeredSurface {
                 log::error!("failed to create DIB section for layered pet window");
                 return;
             };
-            SelectObject(self.mem_dc, bitmap.into());
+            let previous = SelectObject(self.mem_dc, bitmap.into());
+            if self.default_bitmap.is_invalid() {
+                // First-ever selection into this DC: `previous` is the
+                // stock bitmap `CreateCompatibleDC` gave it.
+                self.default_bitmap = previous;
+            }
             self.bitmap = bitmap;
             self.pixels = bits as *mut u8;
             self.width = width;

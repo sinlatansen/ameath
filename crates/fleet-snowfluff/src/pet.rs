@@ -342,6 +342,14 @@ impl PetWindow {
         }
 
         if self.paused {
+            // `frame_frozen` otherwise carries over whatever it was set
+            // to by the last non-paused tick (true whenever the pet
+            // happened to be idle-and-still, e.g. via
+            // `!is_moving && !is_idle_playing` below) -- nothing else
+            // ever clears it, so a pet that paused while still would
+            // stay frozen on frame 0 of the paused/screen cue forever,
+            // reported as "the gif does not change" while docked.
+            self.frame_frozen = false;
             match self.pause_scheduler.tick(dt_ms, rng) {
                 PauseAnimEvent::PlayRandomAnimation => {
                     self.screen_variant = rng.random_range(0..self.animations.screen.len());
