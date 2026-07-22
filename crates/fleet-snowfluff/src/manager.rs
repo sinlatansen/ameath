@@ -10,6 +10,7 @@ use std::sync::{
     Arc,
 };
 
+#[cfg(not(target_os = "linux"))]
 use device_query::DeviceState;
 use fleet_snowfluff_core::{Bounds, MotionSettings, UiLanguage, VoiceLanguage, WanderStayMode};
 use rand::{rngs::StdRng, SeedableRng};
@@ -126,6 +127,10 @@ pub struct PetManager {
     /// constructor panics in that case (inside a callback the OS won't
     /// let unwind past), so it's built behind `catch_unwind` and drag /
     /// follow-mouse are simply disabled rather than crashing the app.
+    /// Unconditionally absent on Linux (see `mouse_available`'s doc
+    /// comment) rather than always `None`, since the *type* itself
+    /// (not just the value) is the problem there.
+    #[cfg(not(target_os = "linux"))]
     device_state: Option<DeviceState>,
     drag_owner: Option<usize>,
     was_left_down: bool,
@@ -141,6 +146,7 @@ impl PetManager {
     pub fn new(app: tauri::AppHandle, total_screen: bool) -> Self {
         let monitor_index = -1;
         let bounds = compute_bounds(&app, total_screen, monitor_index);
+        #[cfg(not(target_os = "linux"))]
         let device_state = std::panic::catch_unwind(std::panic::AssertUnwindSafe(DeviceState::new))
             .inspect_err(|_| {
                 log::warn!(
@@ -176,6 +182,7 @@ impl PetManager {
             click_through: false,
             display_priority: 1,
             rng: StdRng::from_os_rng(),
+            #[cfg(not(target_os = "linux"))]
             device_state,
             drag_owner: None,
             was_left_down: false,
@@ -191,6 +198,21 @@ impl PetManager {
             hidden_by_fullscreen: false,
         }
     }
+
+    /// Whether global mouse polling is available this session. On Linux
+    /// this is unconditionally `false`: `device_query`'s X11 backend
+    /// wraps `Rc<X11Connection>`, which isn't `Send`, and would make
+    /// `Mutex<PetManager>` unable to satisfy Tauri's `Send + Sync`
+    /// requirement for managed state if `device_state` were stored at
+    /// all -- caught via a real Linux build (task 18.2), not just
+    /// reasoned about. Tracked as a follow-up to poll mouse state some
+    /// other way on Linux; for now drag/follow-mouse degrade exactly
+    /// like the macOS missing-permission case.
+    #[cfg(not(target_os = "linux"))]
+    fn mouse_available(&self) -> bool { self.device_state.is_some() }
+
+    #[cfg(target_os = "linux")]
+    fn mouse_available(&self) -> bool { false }
 
     fn ensure_animations(&mut self) -> Arc<AnimationSet> {
         if self.animations.is_none() {
@@ -414,6 +436,7 @@ impl PetManager {
     pub fn tick(&mut self, dt_ms: i64) -> Option<tauri::window::Window> {
         let gpu = self.gpu.as_ref()?;
 
+        #[cfg(not(target_os = "linux"))]
         let (cursor, left_down, right_down) = match &self.device_state {
             Some(ds) => {
                 let mouse_state = ds.query_pointer();
@@ -430,6 +453,11 @@ impl PetManager {
             // drag, follow the cursor, or open the quick menu.
             None => ((0.0, 0.0), false, false),
         };
+        // No mouse polling on Linux at all yet (see `mouse_available`):
+        // pets still move, just never drag, follow the cursor, or open
+        // the quick menu.
+        #[cfg(target_os = "linux")]
+        let (cursor, left_down, right_down) = ((0.0, 0.0), false, false);
         let left_pressed_this_tick = left_down && !self.was_left_down;
         let left_released_this_tick = !left_down && self.was_left_down;
         self.was_left_down = left_down;
@@ -445,7 +473,7 @@ impl PetManager {
         // a non-reentrant `std::sync::Mutex` against itself.
         let mut pending_quick_menu = None;
 
-        if self.device_state.is_some() && !self.click_through {
+        if self.mouse_available() && !self.click_through {
             if left_pressed_this_tick && self.drag_owner.is_none() {
                 if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
                     self.pets[idx].start_drag(cursor);
@@ -470,11 +498,8 @@ impl PetManager {
             }
         }
 
-        let follow_target = if self.settings.follow_mouse && self.device_state.is_some() {
-            Some(cursor)
-        } else {
-            None
-        };
+        let follow_target =
+            if self.settings.follow_mouse && self.mouse_available() { Some(cursor) } else { None };
 
         self.tick_count += 1;
         let log_positions = self.tick_count.is_multiple_of(33); // ~once/second
