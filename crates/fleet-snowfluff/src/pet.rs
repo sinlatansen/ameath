@@ -105,8 +105,8 @@ impl PetWindow {
     /// Applies a display-priority mode: 1 = topmost, 2 = normal (with
     /// fullscreen-hide handled separately by the manager's periodic
     /// check, since it needs OS window introspection), 3 = desktop-only.
-    /// Only macOS is wired up (tasks 8.1/8.3); other platforms fall back
-    /// to plain topmost until tasks 7/9 land.
+    /// macOS (8.1/8.3) and Windows (7.1/7.3) are wired up; Linux (group
+    /// 9) falls back to plain topmost until it lands.
     pub fn apply_display_priority(&self, mode: i64) {
         #[cfg(target_os = "macos")]
         {
@@ -118,7 +118,17 @@ impl PetWindow {
                 self.window.set_always_on_top(true).ok();
             }
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
+        {
+            if mode == 3 {
+                crate::platform::windows::set_desktop_level(&self.window);
+                self.window.set_always_on_top(false).ok();
+            } else {
+                crate::platform::windows::set_normal_level(&self.window);
+                self.window.set_always_on_top(true).ok();
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
             let _ = mode;
             self.window.set_always_on_top(true).ok();

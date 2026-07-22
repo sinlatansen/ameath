@@ -113,12 +113,12 @@ pub struct PetManager {
     /// hidden behind a fullscreen app, see `apply_visibility`.
     visible: bool,
     /// Whether paused pets dock to the current foreground window (task
-    /// 6.8, D15). Only wired up on macOS so far (7.2/9.2 remain).
+    /// 6.8, D15). Wired up on macOS and Windows (9.2 remains for Linux).
     window_snap: bool,
     click_through: bool,
     /// 1 = topmost, 2 = normal + fullscreen-hide, 3 = desktop-only.
     /// Platform layering (tasks 7/8/9) applies the actual OS behavior;
-    /// only macOS is wired up so far.
+    /// macOS and Windows are wired up (Linux, group 9, remains).
     display_priority: i64,
     rng: StdRng,
     /// `None` when global mouse polling is unavailable -- e.g. on macOS
@@ -133,7 +133,7 @@ pub struct PetManager {
     tick_count: u64,
     voice: VoicePlayer,
     ui_language: UiLanguage,
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     hidden_by_fullscreen: bool,
 }
 
@@ -187,7 +187,7 @@ impl PetManager {
             // from the system locale, matching the localization spec's
             // first-run behavior.
             ui_language: fleet_snowfluff_core::detect_ui_language(),
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             hidden_by_fullscreen: false,
         }
     }
@@ -335,9 +335,9 @@ impl PetManager {
     }
 
     fn apply_visibility(&self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         let effective = self.visible && !self.hidden_by_fullscreen;
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let effective = self.visible;
         for pet in &self.pets {
             pet.set_visible(effective);
@@ -492,16 +492,31 @@ impl PetManager {
                 self.apply_visibility();
             }
         }
+        #[cfg(target_os = "windows")]
+        if self.display_priority == 2 && log_positions {
+            let is_fullscreen = crate::platform::windows::foreground_window()
+                .map(|w| w.covers(self.bounds))
+                .unwrap_or(false);
+            if is_fullscreen != self.hidden_by_fullscreen {
+                self.hidden_by_fullscreen = is_fullscreen;
+                self.apply_visibility();
+            }
+        }
 
         // Pause-mode window-snap docking (task 6.8): re-querying the
         // foreground window is an OS call, so it rides the same ~1s
         // throttle as the fullscreen check above rather than running
-        // every ~30ms tick. Only macOS has a foreground-window query
-        // wired up so far (7.2/9.2 will add the others at this same
-        // call site).
+        // every ~30ms tick. macOS and Windows have a foreground-window
+        // query wired up (7.2/9.2 will add Linux at this same call site).
         #[cfg(target_os = "macos")]
         let dock_window = if self.window_snap && log_positions {
             crate::platform::macos::foreground_window().map(|w| w.rect)
+        } else {
+            None
+        };
+        #[cfg(target_os = "windows")]
+        let dock_window = if self.window_snap && log_positions {
+            crate::platform::windows::foreground_window().map(|w| w.rect)
         } else {
             None
         };
@@ -512,7 +527,7 @@ impl PetManager {
                 pet.apply_drag_position(gpu);
             } else {
                 pet.tick(gpu, self.bounds, follow_target, self.settings, dt_ms, &mut self.rng);
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
                 if self.window_snap && log_positions && pet.paused {
                     pet.apply_dock(gpu, self.bounds, dock_window);
                 }

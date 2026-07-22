@@ -1236,6 +1236,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-updater",
  "wgpu",
+ "windows 0.61.3",
  "winreg 0.56.0",
 ]
 
