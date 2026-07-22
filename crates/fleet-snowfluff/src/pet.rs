@@ -185,14 +185,23 @@ impl PetWindow {
         PetSize { w: native_w as f64 * self.scale, h: native_h as f64 * self.scale }
     }
 
+    /// Reasserts the window's logical size every tick (cheap: just an
+    /// IPC message, not a GPU op) rather than only when our own
+    /// `current_window_size` cache disagrees -- on Windows, crossing a
+    /// monitor boundary mid-drag can trigger an out-of-band resize (the
+    /// OS's own DPI-change handling) that our cache has no way to know
+    /// about, so it silently stops correcting a size Windows itself
+    /// already corrupted (reported as the window shrinking, then
+    /// eventually crashing, specifically while dragging between
+    /// differently-scaled monitors). `surface.resize` (an actual GPU
+    /// reconfiguration) stays gated on the cache, since that part *is*
+    /// only ever wrong when our own intended size changes.
     fn apply_window_size(&mut self, gpu: &GpuContext) {
         let clip = self.animations.clip_for(self.cue, self.state.moving_right);
         let size = self.size_for(clip.width, clip.height);
         let (w, h) = (size.w.round() as u32, size.h.round() as u32);
+        self.window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(size.w, size.h))).ok();
         if (w, h) != self.current_window_size {
-            self.window
-                .set_size(tauri::Size::Logical(tauri::LogicalSize::new(size.w, size.h)))
-                .ok();
             self.surface.resize(gpu, w, h);
             self.current_window_size = (w, h);
         }

@@ -143,11 +143,25 @@ impl GpuContext {
     }
 }
 
+/// The GPU-side texture/view/bind-group backing whichever clip is
+/// currently showing, cached across frames rather than recreated on
+/// every `render()` call -- reused as long as the clip's native pixel
+/// dimensions don't change (`write_texture` alone updates the pixel
+/// contents), only rebuilt when they do (switching to a
+/// differently-sized clip).
+struct FrameResources {
+    width: u32,
+    height: u32,
+    texture: wgpu::Texture,
+    bind_group: wgpu::BindGroup,
+}
+
 /// The transparent surface a single pet window renders into.
 pub struct PetSurface {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     opacity_buffer: wgpu::Buffer,
+    frame_resources: Option<FrameResources>,
 }
 
 impl PetSurface {
@@ -176,7 +190,7 @@ impl PetSurface {
         initial[0..4].copy_from_slice(&1.0f32.to_le_bytes());
         gpu.queue.write_buffer(&opacity_buffer, 0, &initial);
 
-        Self { surface, config, opacity_buffer }
+        Self { surface, config, opacity_buffer, frame_resources: None }
     }
 
     pub fn resize(&mut self, gpu: &GpuContext, width: u32, height: u32) {
@@ -195,20 +209,55 @@ impl PetSurface {
     /// stretched to fill the whole surface -- scale (task 6.5) is
     /// achieved by the surface/window already being sized to
     /// `native_size * scale`, so no per-vertex scale math is needed here.
-    pub fn render(&self, gpu: &GpuContext, frame: &AnimationFrame, frame_w: u32, frame_h: u32) {
-        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("pet-frame-texture"),
-            size: wgpu::Extent3d { width: frame_w, height: frame_h, depth_or_array_layers: 1 },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+    ///
+    /// The texture/bind-group backing this are cached in
+    /// `frame_resources` and only rebuilt when `frame_w`/`frame_h`
+    /// change (a different clip) -- creating a brand new GPU texture
+    /// and bind group on literally every call (the original
+    /// implementation) is why memory usage kept climbing well past
+    /// what a handful of small sprite textures should ever need.
+    pub fn render(&mut self, gpu: &GpuContext, frame: &AnimationFrame, frame_w: u32, frame_h: u32) {
+        let needs_rebuild = !matches!(
+            &self.frame_resources,
+            Some(r) if r.width == frame_w && r.height == frame_h
+        );
+        if needs_rebuild {
+            let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("pet-frame-texture"),
+                size: wgpu::Extent3d { width: frame_w, height: frame_h, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("pet-frame-bind-group"),
+                layout: &gpu.bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&gpu.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: self.opacity_buffer.as_entire_binding(),
+                    },
+                ],
+            });
+            self.frame_resources =
+                Some(FrameResources { width: frame_w, height: frame_h, texture, bind_group });
+        }
+        let resources = self.frame_resources.as_ref().unwrap();
         gpu.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &texture,
+                texture: &resources.texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
@@ -221,25 +270,7 @@ impl PetSurface {
             },
             wgpu::Extent3d { width: frame_w, height: frame_h, depth_or_array_layers: 1 },
         );
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("pet-frame-bind-group"),
-            layout: &gpu.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&gpu.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: self.opacity_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = &resources.bind_group;
 
         let output = match self.surface.get_current_texture() {
             Ok(frame) => frame,
@@ -274,7 +305,7 @@ impl PetSurface {
                 occlusion_query_set: None,
             });
             pass.set_pipeline(&gpu.pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_bind_group(0, bind_group, &[]);
             pass.draw(0..6, 0..1);
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
