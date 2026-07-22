@@ -16,27 +16,31 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { workspace = true }
 
 [dependencies]
-device_query         = { workspace = true }
-fleet-snowfluff-core = { path = "../fleet-snowfluff-core" }
-image                = { workspace = true }
-log                  = { workspace = true }
-pollster             = { workspace = true }
-rand                 = { workspace = true }
-rodio                = { workspace = true }
-rust-embed           = { workspace = true }
-serde                = { workspace = true }
-serde_json           = { workspace = true }
-tauri                = { workspace = true }
-tauri-plugin-log     = { workspace = true }
-tauri-plugin-shell   = { workspace = true }
-tauri-plugin-updater = { workspace = true }
-wgpu                 = { workspace = true }
+device_query           = { workspace = true }
+fleet-snowfluff-core   = { path = "../fleet-snowfluff-core" }
+image                  = { workspace = true }
+log                    = { workspace = true }
+pollster               = { workspace = true }
+rand                   = { workspace = true }
+rodio                  = { workspace = true }
+rust-embed             = { workspace = true }
+serde                  = { workspace = true }
+serde_json             = { workspace = true }
+tauri                  = { workspace = true }
+tauri-plugin-autostart = { workspace = true }
+tauri-plugin-log       = { workspace = true }
+tauri-plugin-shell     = { workspace = true }
+tauri-plugin-updater   = { workspace = true }
+wgpu                   = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = { workspace = true }
 core-graphics   = { workspace = true }
 objc2           = { workspace = true }
 objc2-app-kit   = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winreg = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }

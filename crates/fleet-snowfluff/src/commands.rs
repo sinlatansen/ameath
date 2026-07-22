@@ -207,12 +207,20 @@ pub fn set_voice_language(
     apply_and_save(&app, &config, |c| c.voice_language = language);
 }
 
-/// Persists the autostart toggle only -- the actual OS-level
-/// registration (`tauri-plugin-autostart`) lands with task group 15;
-/// until then this just remembers the user's intent so 15's wiring has
-/// a value to apply on startup once it exists.
+/// Toggles the real OS-level login item (task 15.1) and persists the
+/// setting. If the OS call fails (e.g. sandboxing denies it on some
+/// Linux desktop environments), the config still records the user's
+/// intent -- lib.rs's startup reconciliation (comparing the OS's
+/// actual state against `config.auto_startup`) will retry it on the
+/// next launch.
 #[tauri::command]
 pub fn set_auto_startup(enabled: bool, app: AppHandle, config: State<Mutex<Config>>) {
+    use tauri_plugin_autostart::ManagerExt;
+    let autolaunch = app.autolaunch();
+    let result = if enabled { autolaunch.enable() } else { autolaunch.disable() };
+    if let Err(err) = result {
+        log::warn!("failed to {} autostart: {err}", if enabled { "enable" } else { "disable" });
+    }
     apply_and_save(&app, &config, |c| c.auto_startup = enabled);
 }
 

@@ -23,6 +23,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // `.macos_launcher(...)` is a macOS-only builder method (its
+        // default, LaunchAgent, is already what we want) -- omitted
+        // rather than #[cfg]-gated, since calling it isn't needed.
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::locale_dictionary,
             commands::get_personalization,
@@ -62,7 +66,11 @@ pub fn run() {
             let mut pet_manager = PetManager::new(app_handle.clone(), default_config.total_screen);
             pet_manager.set_instance_count(1);
 
-            let config = config_store::load(&app_handle, pet_manager.voice_languages_with_clips());
+            let config = config_store::load(
+                &app_handle,
+                fleet_snowfluff_core::detect_ui_language(),
+                pet_manager.voice_languages_with_clips(),
+            );
             pet_manager
                 .set_scale(fleet_snowfluff_core::constants::scale_options()[config.scale_index]);
             pet_manager.set_opacity(
@@ -86,6 +94,32 @@ pub fn run() {
             // fresh default on first run) are on disk right away, not
             // only after the first setting the user happens to change.
             config_store::save(&app_handle, &config);
+
+            // Reconcile the real OS login-item state against the saved
+            // setting (task 15.1/15.2) -- covers both a fresh install
+            // (config.auto_startup defaults to true, nothing registered
+            // with the OS yet) and drift (e.g. the user removed the
+            // login item by hand outside the app). Best-effort: a
+            // failure here (some Linux desktop environments restrict
+            // this) is logged, not fatal to startup.
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let autolaunch = app_handle.autolaunch();
+                match autolaunch.is_enabled() {
+                    Ok(currently_enabled) if currently_enabled != config.auto_startup => {
+                        let result = if config.auto_startup {
+                            autolaunch.enable()
+                        } else {
+                            autolaunch.disable()
+                        };
+                        if let Err(err) = result {
+                            log::warn!("failed to reconcile autostart state: {err}");
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(err) => log::warn!("failed to read autostart state: {err}"),
+                }
+            }
 
             app.manage(Mutex::new(pet_manager));
             app.manage(Mutex::new(config));
