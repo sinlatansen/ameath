@@ -217,7 +217,14 @@ impl LayeredSurface {
     /// much breathing room so a small mismatch no longer crops anything
     /// visible -- the margin itself is fully transparent, so it isn't
     /// visible when there's no mismatch either.
-    const MARGIN_FACTOR: f64 = 1.1;
+    // Bumped way up (from 1.1) purely as a diagnostic: the 10% margin
+    // made no visible difference at all to the reported cropping, which
+    // means either the real mismatch is much bigger than 10%, or this
+    // isn't actually a size problem. This is deliberately wasteful
+    // (3x the canvas area) and not meant to ship -- it's here to find
+    // out which of those two is true before spending more effort on
+    // either theory.
+    const MARGIN_FACTOR: f64 = 3.0;
 
     /// Returns whether it actually rebuilt the DIB (vs. a same-size
     /// no-op) -- purely so `update` can log the before/after numbers
