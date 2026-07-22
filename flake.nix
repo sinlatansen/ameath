@@ -47,6 +47,17 @@
             stable.rust-std
 
             default.rustfmt
+
+            # Windows cross-compile target (justfile's `build-windows`):
+            # only the std lib, not a full toolchain -- cargo-xwin
+            # supplies the MSVC headers/libs/linker for the actual
+            # cross-link, this just lets rustc compile for the triple
+            # at all. Linux doesn't need an entry here: it builds
+            # inside a real Linux container (justfile's `build-linux`),
+            # not cross-compiled, since Tauri's Linux backend links
+            # against webkit2gtk/GTK which aren't practical to cross-
+            # build from macOS.
+            targets.x86_64-pc-windows-msvc.stable.rust-std
           ];
 
         rustPlatform = pkgs.makeRustPlatform {

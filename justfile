@@ -1,4 +1,4 @@
-set shell := ["nu", "-c"]
+set dotenv-load
 
 default: dev
 
@@ -10,6 +10,18 @@ dev:
 
 build:
     cd crates/fleet-snowfluff; cargo tauri build
+
+# Cross-compiles a portable Windows .exe from macOS/Linux via cargo-xwin
+# (downloads MSVC headers/libs, links with lld) -- goes through `cargo
+# tauri build` rather than plain `cargo build` so custom-protocol gets
+# enabled correctly (see settings_window.rs for why that matters) and
+# the frontend gets built; --no-bundle skips NSIS/MSI packaging since
+# this is just meant to be copied over and run directly, not installed.
+build-windows:
+    cd crates/fleet-snowfluff && nix develop -c cargo tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin --no-bundle
+    rm -rf target/x86_64-pc-windows-msvc/release/assets
+    cp -r assets target/x86_64-pc-windows-msvc/release/assets
+    @echo "Portable build ready: target/x86_64-pc-windows-msvc/release/ -- copy that whole folder to Windows and run fleet-snowfluff.exe"
 
 test:
     cargo test --workspace

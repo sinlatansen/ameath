@@ -25,6 +25,7 @@ pkgs.mkShell {
       cargo-ext.cargo-test-all
       cargo-nextest
       cargo-tauri
+      cargo-xwin
       rustToolchain
 
       tokei
