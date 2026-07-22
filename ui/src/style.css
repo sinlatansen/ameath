@@ -34,52 +34,56 @@
    pink-and-white regardless of system theme, same as legacy always
    was. Overriding Pico's variables (rather than hand-styling each
    element) is what makes every Pico-provided component -- buttons,
-   inputs, selects, links, `hr` -- pick this up for free. This block is
-   unconditional (not inside a `prefers-color-scheme` query), and it's
-   loaded after pico.min.css, so it wins the cascade over Pico's own
-   dark-mode block regardless of the OS setting. */
+   inputs, selects, links, `hr` -- pick this up for free.
+   `!important` on every value is load-bearing, not decorative: Pico's
+   own light-theme rule is scoped to `:root:not([data-theme=dark])`,
+   which is *more specific* than a plain `:root` selector (the `:not()`
+   argument counts toward specificity) -- so a plain override here
+   loses to Pico's own default even though it's later in the
+   stylesheet. `!important` is the reliable way to win against a
+   selector we don't control the specificity of. */
 :root {
   color-scheme: light;
-  --pico-background-color: #fff1f6;
-  --pico-color: #4a2a3a;
-  --pico-h1-color: #4a2a3a;
-  --pico-h2-color: #4a2a3a;
-  --pico-h3-color: #4a2a3a;
-  --pico-h4-color: #4a2a3a;
-  --pico-h5-color: #4a2a3a;
-  --pico-h6-color: #4a2a3a;
-  --pico-muted-color: #7a5564;
-  --pico-muted-border-color: #f3c2d4;
-  --pico-border-color: #f3c2d4;
-  --pico-primary: #ff69b4;
-  --pico-primary-background: #ff69b4;
-  --pico-primary-border: #ff69b4;
-  --pico-primary-hover: #e84d8e;
-  --pico-primary-hover-background: #e84d8e;
-  --pico-primary-hover-border: #e84d8e;
-  --pico-primary-focus: rgb(255 105 180 / 35%);
-  --pico-primary-inverse: #fff;
-  --pico-primary-underline: #ff69b4;
-  --pico-secondary-background: #ffe1ee;
-  --pico-secondary-border: #f3c2d4;
-  --pico-secondary-hover-background: #f3c2d4;
-  --pico-secondary-hover-border: #f3c2d4;
-  --pico-secondary-inverse: #4a2a3a;
-  --pico-card-background-color: #fff;
-  --pico-card-sectioning-background-color: #fff;
-  --pico-card-border-color: #f3c2d4;
-  --pico-form-element-background-color: #fff;
-  --pico-form-element-border-color: #f3c2d4;
-  --pico-form-element-color: #4a2a3a;
-  --pico-form-element-placeholder-color: #7a5564;
-  --pico-form-element-active-background-color: #fff;
-  --pico-form-element-active-border-color: #ff69b4;
-  --pico-form-element-selected-background-color: #ffe1ee;
-  --pico-switch-background-color: #f3c2d4;
-  --pico-switch-checked-background-color: #ff69b4;
-  --pico-range-border-color: #f3c2d4;
-  --pico-range-thumb-color: #ff69b4;
-  --pico-range-thumb-border-color: #ff69b4;
+  --pico-background-color: #fff1f6 !important;
+  --pico-color: #4a2a3a !important;
+  --pico-h1-color: #4a2a3a !important;
+  --pico-h2-color: #4a2a3a !important;
+  --pico-h3-color: #4a2a3a !important;
+  --pico-h4-color: #4a2a3a !important;
+  --pico-h5-color: #4a2a3a !important;
+  --pico-h6-color: #4a2a3a !important;
+  --pico-muted-color: #7a5564 !important;
+  --pico-muted-border-color: #f3c2d4 !important;
+  --pico-border-color: #f3c2d4 !important;
+  --pico-primary: #ff69b4 !important;
+  --pico-primary-background: #ff69b4 !important;
+  --pico-primary-border: #ff69b4 !important;
+  --pico-primary-hover: #e84d8e !important;
+  --pico-primary-hover-background: #e84d8e !important;
+  --pico-primary-hover-border: #e84d8e !important;
+  --pico-primary-focus: rgb(255 105 180 / 35%) !important;
+  --pico-primary-inverse: #fff !important;
+  --pico-primary-underline: #ff69b4 !important;
+  --pico-secondary-background: #ffe1ee !important;
+  --pico-secondary-border: #f3c2d4 !important;
+  --pico-secondary-hover-background: #f3c2d4 !important;
+  --pico-secondary-hover-border: #f3c2d4 !important;
+  --pico-secondary-inverse: #4a2a3a !important;
+  --pico-card-background-color: #fff !important;
+  --pico-card-sectioning-background-color: #fff !important;
+  --pico-card-border-color: #f3c2d4 !important;
+  --pico-form-element-background-color: #fff !important;
+  --pico-form-element-border-color: #f3c2d4 !important;
+  --pico-form-element-color: #4a2a3a !important;
+  --pico-form-element-placeholder-color: #7a5564 !important;
+  --pico-form-element-active-background-color: #fff !important;
+  --pico-form-element-active-border-color: #ff69b4 !important;
+  --pico-form-element-selected-background-color: #ffe1ee !important;
+  --pico-switch-background-color: #f3c2d4 !important;
+  --pico-switch-checked-background-color: #ff69b4 !important;
+  --pico-range-border-color: #f3c2d4 !important;
+  --pico-range-thumb-color: #ff69b4 !important;
+  --pico-range-thumb-border-color: #ff69b4 !important;
 }
 
 html {

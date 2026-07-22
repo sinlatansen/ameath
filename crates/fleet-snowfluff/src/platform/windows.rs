@@ -13,14 +13,18 @@ use windows::{
     core::HSTRING,
     Win32::{
         Foundation::{HWND, LPARAM, RECT, WPARAM},
+        Graphics::{
+            Dwm::{DwmEnableBlurBehindWindow, DWM_BB_ENABLE, DWM_BLURBEHIND},
+            Gdi::HRGN,
+        },
         UI::{
             HiDpi::GetDpiForWindow,
             WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
                 GetParent, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
                 SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE,
-                HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-                WS_EX_NOREDIRECTIONBITMAP,
+                HWND_BOTTOM, SMTO_NORMAL, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                SWP_NOZORDER, WS_EX_NOREDIRECTIONBITMAP,
             },
         },
     },
@@ -31,16 +35,50 @@ use windows::{
 /// Microsoft's own docs: without it, DXGI creates a normal GDI-redirected
 /// swapchain that doesn't support the alpha-compositing modes wgpu asks
 /// for (`pick_alpha_mode` in gfx.rs), silently falling back to
-/// `CompositeAlphaMode::Opaque` -- an opaque rectangle behind the sprite,
-/// which is exactly what looked like "a box with a shadow" and flickered
-/// on every redraw. Must run before the wgpu surface is created against
-/// this window, since wgpu picks its swapchain creation path by
-/// inspecting the window's style bits at that point.
+/// `CompositeAlphaMode::Opaque` -- an opaque rectangle behind the sprite.
+///
+/// Two things Tauri's cross-platform `WindowBuilder` doesn't expose (tao's
+/// own `WindowBuilderExtWindows::with_no_redirection_bitmap` isn't
+/// reachable through it) have to be corrected for after the fact here:
+///
+/// 1. Because `no_redirection_bitmap` was never set at window-creation time,
+///    tao's own window-creation code (seeing `transparent(true)` with that flag
+///    unset) already called `DwmEnableBlurBehindWindow` with a full-window blur
+///    region -- the older, DWM-composited transparency mechanism, and a real
+///    source of visible flicker and a shadow-like edge glow on some driver/DWM
+///    combinations. That call already happened by the time this function runs,
+///    so it has to be explicitly undone (`fEnable: false`), not just skipped.
+/// 2. `SetWindowLongPtrW` alone changes the style bit but Windows doesn't
+///    necessarily re-evaluate the window's redirection surface just because of
+///    that -- `SetWindowPos(..., SWP_FRAMECHANGED)` is the standard way to
+///    force a re-evaluation after an extended-style change (the same pattern
+///    legacy's `window_manager.py` used for its own `SetWindowLongW` calls).
+///
+/// Must run before the wgpu surface is created against this window,
+/// since wgpu picks its swapchain creation path by inspecting the
+/// window's style bits at that point.
 pub fn enable_composition_swapchain(window: &tauri::window::Window) {
     let Some(hwnd) = hwnd_of(window) else { return };
     unsafe {
+        let disable_blur = DWM_BLURBEHIND {
+            dwFlags: DWM_BB_ENABLE,
+            fEnable: false.into(),
+            hRgnBlur: HRGN::default(),
+            fTransitionOnMaximized: false.into(),
+        };
+        let _ = DwmEnableBlurBehindWindow(hwnd, &disable_blur);
+
         let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | WS_EX_NOREDIRECTIONBITMAP.0 as isize);
+        let _ = SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
     }
 }
 
