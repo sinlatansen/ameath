@@ -2,6 +2,10 @@ pub mod animation;
 pub mod assets;
 pub mod commands;
 pub mod config_store;
+// Pet windows on Windows render via GDI instead (platform::windows's
+// LayeredSurface) -- see that module's doc comment for why. Nothing on
+// Windows references this module at all.
+#[cfg(not(target_os = "windows"))]
 pub mod gfx;
 pub mod manager;
 pub mod pet;

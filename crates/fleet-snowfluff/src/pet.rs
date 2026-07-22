@@ -1,7 +1,10 @@
-//! A single pet: its window, GPU surface, and the display-side state
-//! (which animation cue is showing, frame timing) layered on top of the
-//! pure `fleet_snowfluff_core::PetState`. Ties the core tick, the
-//! animation set, and the wgpu surface together (tasks 6.1/6.3/6.4/6.5).
+//! A single pet: its window, GPU surface (or, on Windows, GDI layered-
+//! window surface -- see `platform/windows.rs`'s module doc for why
+//! these two platforms render completely differently), and the
+//! display-side state (which animation cue is showing, frame timing)
+//! layered on top of the pure `fleet_snowfluff_core::PetState`. Ties
+//! the core tick, the animation set, and the rendering backend together
+//! (tasks 6.1/6.3/6.4/6.5).
 
 use std::{sync::Arc, time::Instant};
 
@@ -11,14 +14,35 @@ use fleet_snowfluff_core::{
 };
 use rand::Rng;
 
-use crate::{
-    animation::{AnimationCue, AnimationSet},
-    gfx::{GpuContext, PetSurface},
-};
+use crate::animation::{AnimationCue, AnimationSet};
+#[cfg(not(target_os = "windows"))]
+use crate::gfx::{GpuContext, PetSurface};
+
+/// The rendering backend's shared context, threaded through the same
+/// call sites on every platform (`PetManager::tick`, `PetWindow::
+/// render`, etc.) so those don't need platform-specific branches of
+/// their own. On Windows this is a meaningless placeholder -- there is
+/// no shared GPU context at all, since pet windows render via GDI
+/// (`platform::windows::LayeredSurface`) instead of a wgpu swapchain.
+#[cfg(not(target_os = "windows"))]
+pub type Gpu = GpuContext;
+#[cfg(target_os = "windows")]
+pub type Gpu = ();
 
 pub struct PetWindow {
     pub window: tauri::window::Window,
+    #[cfg(not(target_os = "windows"))]
     surface: PetSurface,
+    #[cfg(target_os = "windows")]
+    layered: crate::platform::windows::LayeredSurface,
+    /// Overrides the position `render()` draws at, while pause-mode
+    /// window-snap docking (task 6.8) is active -- `state.x/y` stays
+    /// the pre-dock resting position to restore on undock, unchanged
+    /// by docking itself. Only needed on Windows: elsewhere, docking
+    /// moves the *window* directly via `window.set_position()` and
+    /// `render()` never needs to know about position at all.
+    #[cfg(target_os = "windows")]
+    dock_position: Option<(f64, f64)>,
     pub state: PetState,
     animations: Arc<AnimationSet>,
     pause_scheduler: PauseAnimationScheduler,
@@ -48,10 +72,11 @@ impl PetWindow {
     /// exist before `GpuContext::new` can run. All params are required
     /// (no sensible defaults for a freshly-spawned pet), so a builder
     /// would add ceremony without adding clarity.
+    #[cfg(not(target_os = "windows"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         window: tauri::window::Window,
-        gpu: &GpuContext,
+        gpu: &Gpu,
         surface: PetSurface,
         animations: Arc<AnimationSet>,
         bounds: Bounds,
@@ -92,14 +117,62 @@ impl PetWindow {
         }
     }
 
-    pub fn set_scale(&mut self, gpu: &GpuContext, scale: f64) {
+    /// No `gpu`/`surface` params here (unlike the other platforms'
+    /// `new`) -- `LayeredSurface` has no shared bootstrap dependency at
+    /// all, it lazily creates its DIB section on the first `render()`
+    /// call. `window` must not have been built with `.transparent(true)`
+    /// (see `platform::windows`'s module doc); `make_layered` sets the
+    /// one style bit it actually needs instead.
+    #[cfg(target_os = "windows")]
+    pub fn new(
+        window: tauri::window::Window,
+        animations: Arc<AnimationSet>,
+        bounds: Bounds,
+        scale: f64,
+        opacity: f32,
+        rng: &mut impl Rng,
+    ) -> Self {
+        let size = PetSize {
+            w: animations.move_right.width as f64 * scale,
+            h: animations.move_right.height as f64 * scale,
+        };
+        let state = PetState::spawn(bounds, size, rng);
+        crate::platform::windows::make_layered(&window);
+
+        Self {
+            window,
+            layered: crate::platform::windows::LayeredSurface::default(),
+            dock_position: None,
+            state,
+            animations,
+            pause_scheduler: PauseAnimationScheduler::new(rng),
+            paused: false,
+            docked: false,
+            dragging: false,
+            drag_offset: (0.0, 0.0),
+            cue: AnimationCue::Move,
+            idle_variant: 0,
+            screen_variant: 0,
+            frame_index: 0,
+            frame_started_at: Instant::now(),
+            frame_frozen: false,
+            scale,
+            opacity,
+            current_window_size: (size.w as u32, size.h as u32),
+        }
+    }
+
+    pub fn set_scale(&mut self, gpu: &Gpu, scale: f64) {
         self.scale = scale;
         self.apply_window_size(gpu);
     }
 
-    pub fn set_opacity(&mut self, gpu: &GpuContext, opacity: f32) {
+    pub fn set_opacity(&mut self, gpu: &Gpu, opacity: f32) {
         self.opacity = opacity;
+        #[cfg(not(target_os = "windows"))]
         self.surface.set_opacity(gpu, opacity);
+        #[cfg(target_os = "windows")]
+        let _ = gpu;
     }
 
     /// Applies a display-priority mode: 1 = topmost, 2 = normal (with
@@ -150,12 +223,7 @@ impl PetWindow {
     /// which docking itself never touches). No-op while not paused.
     /// The caller (manager) is responsible for throttling how often
     /// `window` is refreshed, since producing it is an OS query.
-    pub fn apply_dock(
-        &mut self,
-        gpu: &GpuContext,
-        bounds: Bounds,
-        window: Option<ForeignWindowRect>,
-    ) {
+    pub fn apply_dock(&mut self, gpu: &Gpu, bounds: Bounds, window: Option<ForeignWindowRect>) {
         if !self.paused {
             return;
         }
@@ -165,17 +233,29 @@ impl PetWindow {
             Some((x, y)) => {
                 self.docked = true;
                 self.apply_window_size(gpu);
+                #[cfg(not(target_os = "windows"))]
                 self.window
                     .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
                     .ok();
+                #[cfg(target_os = "windows")]
+                {
+                    self.dock_position = Some((x, y));
+                }
             }
             None if self.docked => {
                 self.docked = false;
                 self.apply_window_size(gpu);
-                let (x, y) = (self.state.x.round(), self.state.y.round());
-                self.window
-                    .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
-                    .ok();
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let (x, y) = (self.state.x.round(), self.state.y.round());
+                    self.window
+                        .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
+                        .ok();
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    self.dock_position = None;
+                }
             }
             None => {}
         }
@@ -196,15 +276,28 @@ impl PetWindow {
     /// differently-scaled monitors). `surface.resize` (an actual GPU
     /// reconfiguration) stays gated on the cache, since that part *is*
     /// only ever wrong when our own intended size changes.
-    fn apply_window_size(&mut self, gpu: &GpuContext) {
+    ///
+    /// On Windows there's no separate `set_size` call at all: size,
+    /// position, and content all get applied together, atomically, by
+    /// `render()`'s `UpdateLayeredWindow` call -- only the
+    /// `current_window_size` bookkeeping (used by `bounds_contains` on
+    /// every platform) happens here.
+    fn apply_window_size(&mut self, gpu: &Gpu) {
         let clip = self.animations.clip_for(self.cue, self.state.moving_right);
         let size = self.size_for(clip.width, clip.height);
         let (w, h) = (size.w.round() as u32, size.h.round() as u32);
-        self.window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(size.w, size.h))).ok();
-        if (w, h) != self.current_window_size {
-            self.surface.resize(gpu, w, h);
-            self.current_window_size = (w, h);
+        #[cfg(not(target_os = "windows"))]
+        {
+            self.window
+                .set_size(tauri::Size::Logical(tauri::LogicalSize::new(size.w, size.h)))
+                .ok();
+            if (w, h) != self.current_window_size {
+                self.surface.resize(gpu, w, h);
+            }
         }
+        #[cfg(target_os = "windows")]
+        let _ = gpu;
+        self.current_window_size = (w, h);
     }
 
     /// Starts a drag: `cursor` is the global cursor position at press time.
@@ -237,7 +330,7 @@ impl PetWindow {
     /// frame pacing (per-clip delay) can be decoupled from tick pacing.
     pub fn tick(
         &mut self,
-        gpu: &GpuContext,
+        gpu: &Gpu,
         bounds: Bounds,
         mouse: Option<(f64, f64)>,
         settings: MotionSettings,
@@ -285,22 +378,32 @@ impl PetWindow {
         self.set_cue(cue);
 
         self.apply_window_size(gpu);
-        let (x, y) = (self.state.x.round(), self.state.y.round());
-        self.window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y))).ok();
+        #[cfg(not(target_os = "windows"))]
+        {
+            let (x, y) = (self.state.x.round(), self.state.y.round());
+            self.window
+                .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
+                .ok();
+        }
     }
 
     /// Applies the current drag position to the window (called every
     /// tick while dragging, separate from `tick` since dragging skips
     /// the core state machine entirely).
-    pub fn apply_drag_position(&mut self, gpu: &GpuContext) {
+    pub fn apply_drag_position(&mut self, gpu: &Gpu) {
         self.apply_window_size(gpu);
-        let (x, y) = (self.state.x.round(), self.state.y.round());
-        self.window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y))).ok();
+        #[cfg(not(target_os = "windows"))]
+        {
+            let (x, y) = (self.state.x.round(), self.state.y.round());
+            self.window
+                .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)))
+                .ok();
+        }
     }
 
     /// Advances the animation frame if its delay has elapsed and draws
     /// the current frame.
-    pub fn render(&mut self, gpu: &GpuContext) {
+    pub fn render(&mut self, gpu: &Gpu) {
         let clip = self.animations.clip_for(self.cue, self.state.moving_right);
         if clip.frames.is_empty() {
             return;
@@ -313,7 +416,25 @@ impl PetWindow {
             }
         }
         let frame = &clip.frames[self.frame_index.min(clip.frames.len() - 1)];
+        #[cfg(not(target_os = "windows"))]
         self.surface.render(gpu, frame, clip.width, clip.height);
+        #[cfg(target_os = "windows")]
+        {
+            let _ = gpu;
+            let (x, y) = self.dock_position.unwrap_or((self.state.x, self.state.y));
+            let (scaled_w, scaled_h) = self.current_window_size;
+            self.layered.update(
+                &self.window,
+                &frame.rgba,
+                clip.width,
+                clip.height,
+                scaled_w,
+                scaled_h,
+                x,
+                y,
+                self.opacity,
+            );
+        }
     }
 
     pub fn bounds_contains(&self, point: (f64, f64)) -> bool {

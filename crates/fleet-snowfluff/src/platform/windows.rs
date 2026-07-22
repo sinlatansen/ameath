@@ -5,42 +5,54 @@
 //! `tauri::window::Window::set_always_on_top`/`set_ignore_cursor_events`
 //! -- tao's Windows backend implements both with the same
 //! `SetWindowPos`/`WS_EX_LAYERED|WS_EX_TRANSPARENT` mechanism legacy used
-//! by hand -- so this module only needs the two things Tauri doesn't
-//! expose.
+//! by hand.
+//!
+//! Also owns pet-window rendering on this platform ([`LayeredSurface`]),
+//! which is unrelated to the WorkerW/foreground-window stuff above but
+//! lives here since it's equally Windows-specific. Two earlier attempts
+//! at getting wgpu's swapchain to composite transparently (a
+//! `WS_EX_NOREDIRECTIONBITMAP` + DirectComposition-adjacent style-bit
+//! hack, then just trying the DX12 backend instead of Vulkan) both
+//! failed -- real hardware testing showed `wgpu alpha modes available`
+//! reporting `Opaque`-only under *both* backends, meaning the swapchain
+//! genuinely has no per-pixel alpha compositing support through
+//! whatever surface Tauri's window creation path hands wgpu. That's
+//! also almost certainly why memory usage stayed high (a full DX12/
+//! Vulkan device + swapchain per pet window, never actually buying any
+//! transparency) and why many instances made the tray menu/settings
+//! window "stuck" (every pet's `present()` call runs on the same main
+//! thread the OS-level UI needs).
+//!
+//! `UpdateLayeredWindow` is the classic, pre-DWM-composition Win32 API
+//! for exactly this (a small always-on-top sprite with real per-pixel
+//! alpha) -- no GPU pipeline at all, just a GDI memory DC blitted
+//! straight onto the window. It's what legacy Ameath was reaching for
+//! with tkinter's `-transparentcolor` (`legacy/ameath/constants.py`'s
+//! `TRANSPARENT_COLOR`), except that's chroma-key (binary transparent/
+//! opaque, jagged edges) where this uses the GIFs' real alpha channel.
 
 use fleet_snowfluff_core::{Bounds, ForeignWindowRect};
 use windows::{
     core::HSTRING,
     Win32::{
-        Foundation::{HWND, LPARAM, RECT, WPARAM},
+        Foundation::{COLORREF, HWND, LPARAM, POINT, RECT, SIZE, WPARAM},
+        Graphics::Gdi::{
+            CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, SelectObject,
+            AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION,
+            DIB_RGB_COLORS, HBITMAP, HDC,
+        },
         UI::{
             HiDpi::GetDpiForWindow,
             WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-                GetParent, GetWindowRect, GetWindowThreadProcessId, SendMessageTimeoutW, SetParent,
-                SetWindowPos, HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                GetParent, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
+                SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
+                UpdateLayeredWindow, GWL_EXSTYLE, HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE,
+                SWP_NOMOVE, SWP_NOSIZE, ULW_ALPHA, WS_EX_LAYERED,
             },
         },
     },
 };
-
-// A `WS_EX_NOREDIRECTIONBITMAP` + `DwmEnableBlurBehindWindow(fEnable: false)`
-// + `SetWindowPos(SWP_FRAMECHANGED)` attempt at fixing the transparent pet
-// windows' flicker/shadow (design.md D14, task 3.1) was tried and reverted
-// here -- reported back as making it *worse* (a solid black box instead of
-// the previous shadow/blink). Most likely explanation:
-// `WS_EX_NOREDIRECTIONBITMAP` tells Windows not to maintain a redirection
-// bitmap for the window at all, which is only useful if something else (a
-// DirectComposition visual tree, via `IDCompositionVisual`/
-// `IDCompositionTarget`) is explicitly wired up to present content instead --
-// wgpu's own Windows surface creation doesn't appear to do that automatically
-// from just the style bit being set, so DWM had nothing to composite. Properly
-// using DirectComposition here would mean driving those COM APIs directly
-// rather than a style-bit shortcut, which is a real rewrite (arguably what task
-// 3.5's "fall back to UpdateLayeredWindow" escape hatch was anticipating), not
-// a follow-up tweak -- left for a dedicated attempt with real Windows hardware
-// to verify against, informed by the wgpu alpha-mode log line (gfx.rs's
-// `pick_alpha_mode`) now retrievable via lib.rs's always-on file logging.
 
 const WM_TRIGGER_WORKERW: u32 = 0x052c;
 
@@ -50,6 +62,179 @@ fn class_name(hwnd: HWND) -> String {
     let mut buf = [0u16; 256];
     let len = unsafe { GetClassNameW(hwnd, &mut buf) };
     String::from_utf16_lossy(&buf[..len.max(0) as usize])
+}
+
+/// Sets `WS_EX_LAYERED` on `window`, required for [`LayeredSurface::update`]
+/// (`UpdateLayeredWindow`) to have any effect. Call once, right after
+/// creation, instead of the builder's `.transparent(true)` -- that flag
+/// routes through tao's DWM-blur-behind transparency path, a different
+/// (and, per the module doc, not-working-for-us) mechanism that fights
+/// with this one rather than complementing it.
+pub fn make_layered(window: &tauri::window::Window) {
+    let Some(hwnd) = hwnd_of(window) else { return };
+    unsafe {
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | WS_EX_LAYERED.0 as isize);
+    }
+}
+
+/// The GDI memory DC + 32bpp top-down DIB section backing one pet
+/// window's [`update`](Self::update) calls, cached across frames the
+/// same way `gfx.rs`'s wgpu texture is -- rebuilt only when the pixel
+/// dimensions change, not on every frame.
+#[derive(Default)]
+pub struct LayeredSurface {
+    mem_dc: HDC,
+    bitmap: HBITMAP,
+    pixels: *mut u8,
+    width: u32,
+    height: u32,
+}
+
+// SAFETY: a `LayeredSurface` is only ever touched from the main thread
+// (constructed and updated from `PetWindow`, itself only ever touched
+// while holding `Mutex<PetManager>` from the tick callback that always
+// runs via `run_on_main_thread`) -- the raw GDI handles and pointer
+// inside are never actually accessed concurrently, `Send` just isn't
+// derivable automatically for raw pointers.
+unsafe impl Send for LayeredSurface {}
+
+impl Drop for LayeredSurface {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.bitmap.is_invalid() {
+                let _ = DeleteObject(self.bitmap.into());
+            }
+            if !self.mem_dc.is_invalid() {
+                let _ = DeleteDC(self.mem_dc);
+            }
+        }
+    }
+}
+
+impl LayeredSurface {
+    fn ensure_size(&mut self, width: u32, height: u32) {
+        if self.width == width && self.height == height && !self.mem_dc.is_invalid() {
+            return;
+        }
+        unsafe {
+            if !self.bitmap.is_invalid() {
+                let _ = DeleteObject(self.bitmap.into());
+            }
+            if self.mem_dc.is_invalid() {
+                self.mem_dc = CreateCompatibleDC(None);
+            }
+            let bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: width as i32,
+                    // Negative height selects top-down row order, matching
+                    // how `frame.rgba` is already laid out (row 0 first).
+                    biHeight: -(height as i32),
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut bits: *mut core::ffi::c_void = std::ptr::null_mut();
+            let Ok(bitmap) =
+                CreateDIBSection(Some(self.mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
+            else {
+                log::error!("failed to create DIB section for layered pet window");
+                return;
+            };
+            SelectObject(self.mem_dc, bitmap.into());
+            self.bitmap = bitmap;
+            self.pixels = bits as *mut u8;
+            self.width = width;
+            self.height = height;
+        }
+    }
+
+    /// Scales `frame_rgba` (straight-alpha, `frame_w x frame_h`, the
+    /// GIF's native pixel size) to `scaled_w x scaled_h` (that size
+    /// times the user's scale setting -- the wgpu path gets this for
+    /// free from the shader stretching a native-res texture over a
+    /// scaled surface; GDI has no equivalent, so it's done by hand
+    /// here, nearest-neighbor to match `gfx.rs`'s sampler filter mode),
+    /// converts to premultiplied BGRA (what `AC_SRC_ALPHA` requires),
+    /// and blits via `UpdateLayeredWindow` at logical position `(x, y)`
+    /// converted to this window's own physical pixels -- a raw Win32
+    /// API call that, unlike every other window-position call in this
+    /// codebase, isn't DPI-aware on its own.
+    #[allow(clippy::too_many_arguments)]
+    pub fn update(
+        &mut self,
+        window: &tauri::window::Window,
+        frame_rgba: &[u8],
+        frame_w: u32,
+        frame_h: u32,
+        scaled_w: u32,
+        scaled_h: u32,
+        x: f64,
+        y: f64,
+        opacity: f32,
+    ) {
+        let Some(hwnd) = hwnd_of(window) else { return };
+        if scaled_w == 0 || scaled_h == 0 || frame_w == 0 || frame_h == 0 {
+            return;
+        }
+        self.ensure_size(scaled_w, scaled_h);
+        if self.pixels.is_null() {
+            return;
+        }
+
+        let dst = unsafe {
+            std::slice::from_raw_parts_mut(self.pixels, (scaled_w * scaled_h * 4) as usize)
+        };
+        for dst_y in 0..scaled_h {
+            let src_y = (dst_y * frame_h / scaled_h).min(frame_h - 1);
+            for dst_x in 0..scaled_w {
+                let src_x = (dst_x * frame_w / scaled_w).min(frame_w - 1);
+                let src_off = ((src_y * frame_w + src_x) * 4) as usize;
+                let dst_off = ((dst_y * scaled_w + dst_x) * 4) as usize;
+                let (r, g, b, a) = (
+                    frame_rgba[src_off] as u32,
+                    frame_rgba[src_off + 1] as u32,
+                    frame_rgba[src_off + 2] as u32,
+                    frame_rgba[src_off + 3] as u32,
+                );
+                // BGRA order, premultiplied -- what a 32bpp DIB used
+                // with AC_SRC_ALPHA requires.
+                dst[dst_off] = (b * a / 255) as u8;
+                dst[dst_off + 1] = (g * a / 255) as u8;
+                dst[dst_off + 2] = (r * a / 255) as u8;
+                dst[dst_off + 3] = a as u8;
+            }
+        }
+
+        let dpi = unsafe { GetDpiForWindow(hwnd) };
+        let scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
+        let dst_pos = POINT { x: (x * scale).round() as i32, y: (y * scale).round() as i32 };
+        let size = SIZE { cx: scaled_w as i32, cy: scaled_h as i32 };
+        let src_pos = POINT { x: 0, y: 0 };
+        let blend = BLENDFUNCTION {
+            BlendOp: AC_SRC_OVER as u8,
+            BlendFlags: 0,
+            SourceConstantAlpha: (opacity.clamp(0.0, 1.0) * 255.0).round() as u8,
+            AlphaFormat: AC_SRC_ALPHA as u8,
+        };
+        unsafe {
+            let _ = UpdateLayeredWindow(
+                hwnd,
+                None,
+                Some(&dst_pos),
+                Some(&size),
+                Some(self.mem_dc),
+                Some(&src_pos),
+                COLORREF(0),
+                Some(&blend),
+                ULW_ALPHA,
+            );
+        }
+    }
 }
 
 /// Finds the desktop-icon `WorkerW` (the empty one behind

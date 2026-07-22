@@ -15,10 +15,11 @@ use device_query::DeviceState;
 use fleet_snowfluff_core::{Bounds, MotionSettings, UiLanguage, VoiceLanguage, WanderStayMode};
 use rand::{rngs::StdRng, SeedableRng};
 
+#[cfg(not(target_os = "windows"))]
+use crate::gfx::{GpuContext, PetSurface};
 use crate::{
     animation::{load_animation_set, AnimationSet},
-    gfx::{GpuContext, PetSurface},
-    pet::PetWindow,
+    pet::{Gpu, PetWindow},
     voice::VoicePlayer,
 };
 
@@ -118,31 +119,20 @@ fn compute_bounds(app: &tauri::AppHandle, total_screen: bool, monitor_index: i64
     }
 }
 
-/// On Windows, explicitly requests the DX12 backend rather than letting
-/// wgpu pick whichever backend it finds first. Found via testing (a
-/// real log, not a guess): on at least one Windows machine wgpu picked
-/// Vulkan, whose win32 surface only advertised `[Opaque, Inherit]`
-/// composite alpha modes -- no real per-pixel transparency support at
-/// all, which is why the "transparent" pet windows rendered with a
-/// solid black background regardless of any window-style tweaks (see
-/// `gfx.rs`'s `pick_alpha_mode`). DX12 has mature DirectComposition
-/// integration and is far more likely to expose a working alpha mode
-/// for this. Every other platform keeps wgpu's own default selection
-/// (Metal on macOS, Vulkan on Linux -- both already confirmed working).
-fn wgpu_instance_descriptor() -> wgpu::InstanceDescriptor {
-    #[cfg(target_os = "windows")]
-    {
-        wgpu::InstanceDescriptor { backends: wgpu::Backends::DX12, ..Default::default() }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        wgpu::InstanceDescriptor::default()
-    }
-}
-
 pub struct PetManager {
     app: tauri::AppHandle,
+    /// Neither field exists on Windows at all: pet-window rendering
+    /// there goes through GDI (`platform::windows::LayeredSurface`),
+    /// not a wgpu swapchain -- see that module's doc comment for why
+    /// (real hardware testing showed no backend advertising working
+    /// alpha compositing through Tauri's window creation path, and the
+    /// unused GPU device/swapchain per window was itself a plausible
+    /// driver of both the high memory usage and, since every window's
+    /// `present()` ran on the same main thread, the tray/settings
+    /// "stuck" reports past a few instances).
+    #[cfg(not(target_os = "windows"))]
     instance: wgpu::Instance,
+    #[cfg(not(target_os = "windows"))]
     gpu: Option<GpuContext>,
     animations: Option<Arc<AnimationSet>>,
     pets: Vec<PetWindow>,
@@ -216,7 +206,9 @@ impl PetManager {
 
         Self {
             app,
-            instance: wgpu::Instance::new(&wgpu_instance_descriptor()),
+            #[cfg(not(target_os = "windows"))]
+            instance: wgpu::Instance::new(&wgpu::InstanceDescriptor::default()),
+            #[cfg(not(target_os = "windows"))]
             gpu: None,
             animations: None,
             pets: Vec::new(),
@@ -285,20 +277,10 @@ impl PetManager {
             self.bounds.bottom
         );
 
-        let window = tauri::window::WindowBuilder::new(&self.app, &label)
+        #[cfg_attr(target_os = "windows", allow(unused_mut))]
+        let mut builder = tauri::window::WindowBuilder::new(&self.app, &label)
             .title("Fleet Snowfluff")
             .decorations(false)
-            .transparent(true)
-            // On Windows, tauri-runtime-wry paints a *software-rendered*
-            // fallback background on every `RedrawRequested` (which fires
-            // constantly here, since every tick moves the window) --
-            // defaulting to opaque black when this isn't set explicitly.
-            // That's the real blink/box culprit found via the app's own
-            // log: our wgpu frames and wry's own black repaints were
-            // interleaving. Zero alpha makes that fallback paint nothing
-            // instead. Harmless on macOS/Linux (background_color there
-            // is only used by other codepaths that don't apply here).
-            .background_color(tauri::window::Color(0, 0, 0, 0))
             .always_on_top(true)
             .resizable(false)
             .skip_taskbar(true)
@@ -306,26 +288,46 @@ impl PetManager {
                 animations.move_right.width as f64 * self.scale,
                 animations.move_right.height as f64 * self.scale,
             )
-            .position(-10_000.0, -10_000.0)
-            .build()
-            .expect("create pet window");
-
-        let raw_surface =
-            self.instance.create_surface(window.clone()).expect("create wgpu surface for pet");
-
-        if self.gpu.is_none() {
-            self.gpu = Some(GpuContext::new(&self.instance, &raw_surface));
+            .position(-10_000.0, -10_000.0);
+        // Windows renders via GDI/UpdateLayeredWindow instead of a wgpu
+        // swapchain (see platform::windows's doc comment) -- deliberately
+        // NOT calling .transparent(true) here, since that routes through
+        // tao's DWM-blur-behind path, which fights with (and, tested on
+        // real hardware, loses to) that mechanism rather than
+        // complementing it. `make_layered` below sets the one style bit
+        // actually needed instead.
+        #[cfg(not(target_os = "windows"))]
+        {
+            builder = builder.background_color(tauri::window::Color(0, 0, 0, 0));
+            builder = builder.transparent(true);
         }
-        let gpu = self.gpu.as_ref().unwrap();
+        let window = builder.build().expect("create pet window");
 
-        let w = (animations.move_right.width as f64 * self.scale).round() as u32;
-        let h = (animations.move_right.height as f64 * self.scale).round() as u32;
-        let surface = PetSurface::new(gpu, raw_surface, w, h);
-
+        #[cfg(not(target_os = "windows"))]
+        let pet = {
+            let raw_surface =
+                self.instance.create_surface(window.clone()).expect("create wgpu surface for pet");
+            if self.gpu.is_none() {
+                self.gpu = Some(GpuContext::new(&self.instance, &raw_surface));
+            }
+            let gpu = self.gpu.as_ref().unwrap();
+            let w = (animations.move_right.width as f64 * self.scale).round() as u32;
+            let h = (animations.move_right.height as f64 * self.scale).round() as u32;
+            let surface = PetSurface::new(gpu, raw_surface, w, h);
+            PetWindow::new(
+                window,
+                gpu,
+                surface,
+                animations,
+                self.bounds,
+                self.scale,
+                self.opacity,
+                &mut self.rng,
+            )
+        };
+        #[cfg(target_os = "windows")]
         let pet = PetWindow::new(
             window,
-            gpu,
-            surface,
             animations,
             self.bounds,
             self.scale,
@@ -386,19 +388,29 @@ impl PetManager {
 
     pub fn set_scale(&mut self, scale: f64) {
         self.scale = scale;
+        #[cfg(not(target_os = "windows"))]
         if let Some(gpu) = &self.gpu {
             for pet in &mut self.pets {
                 pet.set_scale(gpu, scale);
             }
         }
+        #[cfg(target_os = "windows")]
+        for pet in &mut self.pets {
+            pet.set_scale(&(), scale);
+        }
     }
 
     pub fn set_opacity(&mut self, opacity: f32) {
         self.opacity = opacity;
+        #[cfg(not(target_os = "windows"))]
         if let Some(gpu) = &self.gpu {
             for pet in &mut self.pets {
                 pet.set_opacity(gpu, opacity);
             }
+        }
+        #[cfg(target_os = "windows")]
+        for pet in &mut self.pets {
+            pet.set_opacity(&(), opacity);
         }
     }
 
@@ -497,7 +509,10 @@ impl PetManager {
     /// lock this method runs under (see the doc comment at the
     /// right-click detection site below for why).
     pub fn tick(&mut self, dt_ms: i64) -> Option<tauri::window::Window> {
-        let gpu = self.gpu.as_ref()?;
+        #[cfg(not(target_os = "windows"))]
+        let gpu: &Gpu = self.gpu.as_ref()?;
+        #[cfg(target_os = "windows")]
+        let gpu: &Gpu = &();
 
         #[cfg(not(target_os = "linux"))]
         let (cursor, left_down, right_down) = match &self.device_state {
