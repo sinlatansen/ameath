@@ -171,7 +171,18 @@ impl PetSurface {
             format: gpu.format,
             width: width.max(1),
             height: height.max(1),
-            present_mode: wgpu::PresentMode::Fifo,
+            // `Fifo` blocks `get_current_texture()`/`present()` until the
+            // next vblank -- fine for one window, but every pet's render
+            // runs sequentially on the same main-thread tick callback
+            // (see lib.rs's setup), all under the same `Mutex<PetManager>`
+            // lock, so N windows meant up to N vblank waits stacked back
+            // to back every tick. Past a handful of instances that's long
+            // enough to starve the main thread, which is also where the
+            // tray menu and settings-window commands need to run --
+            // reported as both appearing to hang with 4+ instances.
+            // `AutoNoVsync` (Immediate, falling back to Mailbox then Fifo)
+            // doesn't wait on vblank at all in the common case.
+            present_mode: wgpu::PresentMode::AutoNoVsync,
             alpha_mode: gpu.alpha_mode,
             view_formats: vec![],
             desired_maximum_frame_latency: 2,

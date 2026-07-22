@@ -65,7 +65,7 @@ pub fn run() {
             // this app can't be run under a debugger for) has nothing
             // to go on. Default targets (this plugin's own, unchanged)
             // are stdout plus the platform log directory -- on Windows
-            // that's `%APPDATA%/io.github.kagetsuki1997.fleet-snowfluff/
+            // that's `%APPDATA%/fleet-snowfluff/
             // logs/`.
             app.handle().plugin(
                 tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
