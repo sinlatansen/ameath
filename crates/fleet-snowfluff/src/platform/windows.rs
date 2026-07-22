@@ -58,6 +58,45 @@ const WM_TRIGGER_WORKERW: u32 = 0x052c;
 
 fn hwnd_of(window: &tauri::window::Window) -> Option<HWND> { window.hwnd().ok() }
 
+/// Converts a logical-point window position to physical pixels by
+/// finding which monitor's logical bounds contain it and applying that
+/// monitor's own offset and scale -- unlike a plain size multiply (fine
+/// for `SIZE`, which has no origin to get wrong), a *position* on a
+/// multi-monitor desktop mixing DPIs isn't related to its physical
+/// counterpart by a single global scalar: each monitor's logical origin
+/// only lines up with its physical origin if it happens to sit at the
+/// virtual desktop's origin. `manager.rs`'s `physical_to_logical_cursor`
+/// is the same fix in the opposite direction, for the same reason.
+/// Falls back to the window's own DPI applied from the origin if no
+/// monitor contains the point (e.g. transiently during a display
+/// reconfiguration).
+fn logical_to_physical_position(
+    window: &tauri::window::Window,
+    hwnd: HWND,
+    x: f64,
+    y: f64,
+) -> (i32, i32) {
+    let monitors = window.available_monitors().unwrap_or_default();
+    for m in &monitors {
+        let scale = m.scale_factor();
+        let pos = m.position();
+        let size = m.size();
+        let logical_left = pos.x as f64 / scale;
+        let logical_top = pos.y as f64 / scale;
+        let logical_right = logical_left + size.width as f64 / scale;
+        let logical_bottom = logical_top + size.height as f64 / scale;
+        if x >= logical_left && x < logical_right && y >= logical_top && y < logical_bottom {
+            return (
+                (pos.x as f64 + (x - logical_left) * scale).round() as i32,
+                (pos.y as f64 + (y - logical_top) * scale).round() as i32,
+            );
+        }
+    }
+    let dpi = unsafe { GetDpiForWindow(hwnd) };
+    let scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
+    ((x * scale).round() as i32, (y * scale).round() as i32)
+}
+
 fn class_name(hwnd: HWND) -> String {
     let mut buf = [0u16; 256];
     let len = unsafe { GetClassNameW(hwnd, &mut buf) };
@@ -256,8 +295,8 @@ impl LayeredSurface {
             }
         }
 
-        let dst_pos =
-            POINT { x: (x * dpi_scale).round() as i32, y: (y * dpi_scale).round() as i32 };
+        let (phys_x, phys_y) = logical_to_physical_position(window, hwnd, x, y);
+        let dst_pos = POINT { x: phys_x, y: phys_y };
         let size = SIZE { cx: physical_w as i32, cy: physical_h as i32 };
         let src_pos = POINT { x: 0, y: 0 };
         let blend = BLENDFUNCTION {
