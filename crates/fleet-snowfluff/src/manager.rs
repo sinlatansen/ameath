@@ -278,11 +278,6 @@ impl PetManager {
             .build()
             .expect("create pet window");
 
-        // Must happen before the wgpu surface is created against this
-        // window -- see the function's own doc comment for why.
-        #[cfg(target_os = "windows")]
-        crate::platform::windows::enable_composition_swapchain(&window);
-
         let raw_surface =
             self.instance.create_surface(window.clone()).expect("create wgpu surface for pet");
 

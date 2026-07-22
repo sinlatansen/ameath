@@ -22,6 +22,13 @@ shadow_rs::shadow!(build);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // A release build has no console window on Windows/macOS GUI
+    // subsystems, so an unhandled panic would otherwise just vanish the
+    // process with zero trace of why -- log it to the same file the
+    // plugin below writes to (its own default targets already include
+    // the platform log directory) before the process dies.
+    std::panic::set_hook(Box::new(|info| log::error!("panic: {info}")));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -53,11 +60,21 @@ pub fn run() {
             commands::install_update,
         ])
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
-                )?;
-            }
+            // Always on (not just debug builds) -- otherwise a release
+            // build's crash or misbehavior report (e.g. Windows testing
+            // this app can't be run under a debugger for) has nothing
+            // to go on. Default targets (this plugin's own, unchanged)
+            // are stdout plus the platform log directory -- on Windows
+            // that's `%APPDATA%/io.github.kagetsuki1997.fleet-snowfluff/
+            // logs/`.
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
+            )?;
+            log::info!(
+                "fleet-snowfluff {} (build {}) starting",
+                build::PKG_VERSION,
+                build::SHORT_COMMIT
+            );
 
             // Bootstrap with typed defaults first (total_screen needs to
             // be known before PetManager can compute initial bounds);

@@ -13,74 +13,34 @@ use windows::{
     core::HSTRING,
     Win32::{
         Foundation::{HWND, LPARAM, RECT, WPARAM},
-        Graphics::{
-            Dwm::{DwmEnableBlurBehindWindow, DWM_BB_ENABLE, DWM_BLURBEHIND},
-            Gdi::HRGN,
-        },
         UI::{
             HiDpi::GetDpiForWindow,
             WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-                GetParent, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
-                SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE,
-                HWND_BOTTOM, SMTO_NORMAL, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-                SWP_NOZORDER, WS_EX_NOREDIRECTIONBITMAP,
+                GetParent, GetWindowRect, GetWindowThreadProcessId, SendMessageTimeoutW, SetParent,
+                SetWindowPos, HWND_BOTTOM, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
             },
         },
     },
 };
 
-/// Sets `WS_EX_NOREDIRECTIONBITMAP` on `window`, which the DirectComposition-
-/// backed transparent surface (design.md D14, task 3.1) requires per
-/// Microsoft's own docs: without it, DXGI creates a normal GDI-redirected
-/// swapchain that doesn't support the alpha-compositing modes wgpu asks
-/// for (`pick_alpha_mode` in gfx.rs), silently falling back to
-/// `CompositeAlphaMode::Opaque` -- an opaque rectangle behind the sprite.
-///
-/// Two things Tauri's cross-platform `WindowBuilder` doesn't expose (tao's
-/// own `WindowBuilderExtWindows::with_no_redirection_bitmap` isn't
-/// reachable through it) have to be corrected for after the fact here:
-///
-/// 1. Because `no_redirection_bitmap` was never set at window-creation time,
-///    tao's own window-creation code (seeing `transparent(true)` with that flag
-///    unset) already called `DwmEnableBlurBehindWindow` with a full-window blur
-///    region -- the older, DWM-composited transparency mechanism, and a real
-///    source of visible flicker and a shadow-like edge glow on some driver/DWM
-///    combinations. That call already happened by the time this function runs,
-///    so it has to be explicitly undone (`fEnable: false`), not just skipped.
-/// 2. `SetWindowLongPtrW` alone changes the style bit but Windows doesn't
-///    necessarily re-evaluate the window's redirection surface just because of
-///    that -- `SetWindowPos(..., SWP_FRAMECHANGED)` is the standard way to
-///    force a re-evaluation after an extended-style change (the same pattern
-///    legacy's `window_manager.py` used for its own `SetWindowLongW` calls).
-///
-/// Must run before the wgpu surface is created against this window,
-/// since wgpu picks its swapchain creation path by inspecting the
-/// window's style bits at that point.
-pub fn enable_composition_swapchain(window: &tauri::window::Window) {
-    let Some(hwnd) = hwnd_of(window) else { return };
-    unsafe {
-        let disable_blur = DWM_BLURBEHIND {
-            dwFlags: DWM_BB_ENABLE,
-            fEnable: false.into(),
-            hRgnBlur: HRGN::default(),
-            fTransitionOnMaximized: false.into(),
-        };
-        let _ = DwmEnableBlurBehindWindow(hwnd, &disable_blur);
-
-        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | WS_EX_NOREDIRECTIONBITMAP.0 as isize);
-        let _ = SetWindowPos(
-            hwnd,
-            None,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-        );
-    }
-}
+// A `WS_EX_NOREDIRECTIONBITMAP` + `DwmEnableBlurBehindWindow(fEnable: false)`
+// + `SetWindowPos(SWP_FRAMECHANGED)` attempt at fixing the transparent pet
+// windows' flicker/shadow (design.md D14, task 3.1) was tried and reverted
+// here -- reported back as making it *worse* (a solid black box instead of
+// the previous shadow/blink). Most likely explanation:
+// `WS_EX_NOREDIRECTIONBITMAP` tells Windows not to maintain a redirection
+// bitmap for the window at all, which is only useful if something else (a
+// DirectComposition visual tree, via `IDCompositionVisual`/
+// `IDCompositionTarget`) is explicitly wired up to present content instead --
+// wgpu's own Windows surface creation doesn't appear to do that automatically
+// from just the style bit being set, so DWM had nothing to composite. Properly
+// using DirectComposition here would mean driving those COM APIs directly
+// rather than a style-bit shortcut, which is a real rewrite (arguably what task
+// 3.5's "fall back to UpdateLayeredWindow" escape hatch was anticipating), not
+// a follow-up tweak -- left for a dedicated attempt with real Windows hardware
+// to verify against, informed by the wgpu alpha-mode log line (gfx.rs's
+// `pick_alpha_mode`) now retrievable via lib.rs's always-on file logging.
 
 const WM_TRIGGER_WORKERW: u32 = 0x052c;
 
