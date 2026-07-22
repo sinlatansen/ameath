@@ -267,6 +267,16 @@ impl PetManager {
             .title("Fleet Snowfluff")
             .decorations(false)
             .transparent(true)
+            // On Windows, tauri-runtime-wry paints a *software-rendered*
+            // fallback background on every `RedrawRequested` (which fires
+            // constantly here, since every tick moves the window) --
+            // defaulting to opaque black when this isn't set explicitly.
+            // That's the real blink/box culprit found via the app's own
+            // log: our wgpu frames and wry's own black repaints were
+            // interleaving. Zero alpha makes that fallback paint nothing
+            // instead. Harmless on macOS/Linux (background_color there
+            // is only used by other codepaths that don't apply here).
+            .background_color(tauri::window::Color(0, 0, 0, 0))
             .always_on_top(true)
             .resizable(false)
             .skip_taskbar(true)
