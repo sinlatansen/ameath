@@ -126,9 +126,12 @@ impl Drop for LayeredSurface {
 }
 
 impl LayeredSurface {
-    fn ensure_size(&mut self, width: u32, height: u32) {
+    /// Returns whether it actually rebuilt the DIB (vs. a same-size
+    /// no-op) -- purely so `update` can log the before/after numbers
+    /// only when something changes, not every frame.
+    fn ensure_size(&mut self, width: u32, height: u32) -> bool {
         if self.width == width && self.height == height && !self.mem_dc.is_invalid() {
-            return;
+            return false;
         }
         unsafe {
             if self.mem_dc.is_invalid() {
@@ -161,7 +164,7 @@ impl LayeredSurface {
                 CreateDIBSection(Some(self.mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
             else {
                 log::error!("failed to create DIB section for layered pet window");
-                return;
+                return false;
             };
             let previous = SelectObject(self.mem_dc, bitmap.into());
             if self.default_bitmap.is_invalid() {
@@ -174,6 +177,7 @@ impl LayeredSurface {
             self.width = width;
             self.height = height;
         }
+        true
     }
 
     /// Scales `frame_rgba` (straight-alpha, `frame_w x frame_h`, the
@@ -218,7 +222,12 @@ impl LayeredSurface {
             return;
         }
 
-        self.ensure_size(physical_w, physical_h);
+        if self.ensure_size(physical_w, physical_h) {
+            log::info!(
+                "layered surface resize: dpi={dpi} frame={frame_w}x{frame_h} \
+                 scaled(logical)={scaled_w}x{scaled_h} physical={physical_w}x{physical_h}"
+            );
+        }
         if self.pixels.is_null() {
             return;
         }
