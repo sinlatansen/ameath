@@ -36,10 +36,13 @@ use windows::{
     core::HSTRING,
     Win32::{
         Foundation::{COLORREF, HWND, LPARAM, POINT, RECT, SIZE, WPARAM},
-        Graphics::Gdi::{
-            CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, SelectObject,
-            AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION,
-            DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
+        Graphics::{
+            Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED},
+            Gdi::{
+                CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, SelectObject,
+                AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION,
+                DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
+            },
         },
         UI::{
             HiDpi::{
@@ -127,11 +130,28 @@ fn class_name(hwnd: HWND) -> String {
 /// routes through tao's DWM-blur-behind transparency path, a different
 /// (and, per the module doc, not-working-for-us) mechanism that fights
 /// with this one rather than complementing it.
+///
+/// Also asks DWM to skip its own window-resize transition animation for
+/// this window (`DWMWA_TRANSITIONS_FORCEDISABLED`). Pet windows call
+/// `UpdateLayeredWindow` roughly every tick (~30ms), including with a
+/// new size on a rescale or a monitor crossing (task 6.5/7.2) -- if DWM
+/// tries to animate each of those as a normal window resize, calling it
+/// again before the animation settles would mean the pet visibly never
+/// finishes "growing into" or "shrinking into" its new size, which
+/// would look exactly like the content and window bounds not matching.
 pub fn make_layered(window: &tauri::window::Window) {
     let Some(hwnd) = hwnd_of(window) else { return };
     unsafe {
         let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | WS_EX_LAYERED.0 as isize);
+
+        let disable_transitions: i32 = 1;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            &disable_transitions as *const i32 as *const core::ffi::c_void,
+            size_of::<i32>() as u32,
+        );
     }
 }
 
