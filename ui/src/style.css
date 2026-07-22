@@ -5,6 +5,29 @@
    row layout for the personalization form (Pico's default stacks
    label above control, too tall for ~13 rows in a small window). */
 
+/* zpix (legacy's pixel-art font, `legacy/ameath/fonts.py`) covers Latin,
+   CJK, and most kana (~93%) but has zero Hangul coverage -- checked
+   directly against its `cmap` table, not just eyeballed. The fallback
+   chain lets the browser pick up Hangul (and any missed kana glyphs)
+   from whichever of these the OS has installed; on a system with none
+   of them it falls through to Pico's own sans-serif stack, never to
+   tofu boxes for a language zpix can't render. Overriding Pico's
+   `--pico-font-family` variable (rather than setting `font-family`
+   directly on `html`/`body`) is what makes this reach headings,
+   `code`/`pre`, and every other element Pico's own rules already
+   reference the variable from. */
+@font-face {
+  font-family: "zpix";
+  src: url("/fonts/zpix.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  --pico-font-family:
+    "zpix", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", "Noto Sans TC",
+    var(--pico-font-family-sans-serif);
+}
+
 html {
   font-size: 14px;
 }
