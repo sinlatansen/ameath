@@ -67,20 +67,29 @@ interface UpdateInfo {
 let pendingUpdate: UpdateInfo | null = null;
 
 async function main(): Promise<void> {
-  await loadDictionary();
-  pendingUpdate = await invoke<UpdateInfo | null>("pending_update");
-  if (pendingUpdate) {
-    activeTab = "update";
-  }
-  await render();
+  try {
+    await loadDictionary();
+    pendingUpdate = await invoke<UpdateInfo | null>("pending_update");
+    if (pendingUpdate) {
+      activeTab = "update";
+    }
+    await render();
 
-  // Only relevant if the startup check finds an update *after* this
-  // window is already open (pendingUpdate above only covers the case
-  // where it was found before the window existed).
-  await listen<Tab>("switch-tab", (event) => {
-    activeTab = event.payload;
-    applyActiveTab();
-  });
+    // Only relevant if the startup check finds an update *after* this
+    // window is already open (pendingUpdate above only covers the case
+    // where it was found before the window existed).
+    await listen<Tab>("switch-tab", (event) => {
+      activeTab = event.payload;
+      applyActiveTab();
+    });
+  } catch (err) {
+    // Nothing above renders anything on its own failure -- without
+    // this, a thrown error here (e.g. an invoke() rejection) would
+    // leave a completely blank window with no trace of why.
+    console.error("settings window failed to initialize:", err);
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML =
+      `<p class="error">${String(err)}</p>`;
+  }
 }
 
 async function render(): Promise<void> {

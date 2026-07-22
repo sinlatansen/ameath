@@ -44,6 +44,13 @@ just test   # run the core crate's test suite
 A [Nix devshell](flake.nix) provides the Rust toolchain and formatters; run
 `nix develop` or let `direnv` load it automatically.
 
+Always use `just dev`/`just build` (or `cargo tauri dev`/`cargo tauri build`
+directly) rather than a plain `cargo run`/`cargo build` — the settings
+window is the app's only webview, and a raw cargo invocation doesn't enable
+the Tauri CLI's `custom-protocol` feature, so it tries to load the Vite dev
+server URL instead of the bundled frontend even when nothing is serving
+it, leaving that window silently blank.
+
 ## Origins & Attribution
 
 Fleet Snowfluff is a Rust rewrite of **Ameath**, a fan-made desktop pet
