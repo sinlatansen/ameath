@@ -58,24 +58,38 @@ const WM_TRIGGER_WORKERW: u32 = 0x052c;
 
 fn hwnd_of(window: &tauri::window::Window) -> Option<HWND> { window.hwnd().ok() }
 
-/// Converts a logical-point window position to physical pixels by
-/// finding which monitor's logical bounds contain it and applying that
-/// monitor's own offset and scale -- unlike a plain size multiply (fine
-/// for `SIZE`, which has no origin to get wrong), a *position* on a
-/// multi-monitor desktop mixing DPIs isn't related to its physical
+/// Finds which monitor's logical bounds contain logical point `(x, y)`
+/// and returns that monitor's own scale factor together with the
+/// point's physical-pixel equivalent -- unlike a plain size multiply
+/// (fine for `SIZE`, which has no origin to get wrong), a *position* on
+/// a multi-monitor desktop mixing DPIs isn't related to its physical
 /// counterpart by a single global scalar: each monitor's logical origin
 /// only lines up with its physical origin if it happens to sit at the
 /// virtual desktop's origin. `manager.rs`'s `physical_to_logical_cursor`
 /// is the same fix in the opposite direction, for the same reason.
-/// Falls back to the window's own DPI applied from the origin if no
-/// monitor contains the point (e.g. transiently during a display
-/// reconfiguration).
-fn logical_to_physical_position(
+///
+/// Returning the scale here too (rather than having the caller separately
+/// call `GetDpiForWindow` for sizing) matters, not just for convenience:
+/// `GetDpiForWindow` reflects whichever monitor Windows currently
+/// considers the window to be on, which lags one frame behind a window
+/// that's actively moving -- using it for size while this function's
+/// own fresh monitor lookup is used for position meant size and
+/// position could each be computed against a *different* monitor's
+/// scale right as a window crosses a boundary, which is exactly the
+/// kind of inconsistency that made Windows itself flip-flop the
+/// window's monitor assignment every frame (visible as the logged DPI
+/// oscillating 96/120 many times a second with the window not actually
+/// moving). Both now always agree, derived from the same lookup.
+///
+/// Falls back to the window's own current `GetDpiForWindow` applied
+/// from the origin if no monitor contains the point at all (e.g.
+/// transiently during a display reconfiguration).
+fn resolve_monitor_scale_and_position(
     window: &tauri::window::Window,
     hwnd: HWND,
     x: f64,
     y: f64,
-) -> (i32, i32) {
+) -> (f64, i32, i32) {
     let monitors = window.available_monitors().unwrap_or_default();
     for m in &monitors {
         let scale = m.scale_factor();
@@ -87,6 +101,7 @@ fn logical_to_physical_position(
         let logical_bottom = logical_top + size.height as f64 / scale;
         if x >= logical_left && x < logical_right && y >= logical_top && y < logical_bottom {
             return (
+                scale,
                 (pos.x as f64 + (x - logical_left) * scale).round() as i32,
                 (pos.y as f64 + (y - logical_top) * scale).round() as i32,
             );
@@ -94,7 +109,7 @@ fn logical_to_physical_position(
     }
     let dpi = unsafe { GetDpiForWindow(hwnd) };
     let scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
-    ((x * scale).round() as i32, (y * scale).round() as i32)
+    (scale, (x * scale).round() as i32, (y * scale).round() as i32)
 }
 
 fn class_name(hwnd: HWND) -> String {
@@ -253,8 +268,7 @@ impl LayeredSurface {
             return;
         }
 
-        let dpi = unsafe { GetDpiForWindow(hwnd) };
-        let dpi_scale = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
+        let (dpi_scale, phys_x, phys_y) = resolve_monitor_scale_and_position(window, hwnd, x, y);
         let physical_w = ((scaled_w as f64) * dpi_scale).round() as u32;
         let physical_h = ((scaled_h as f64) * dpi_scale).round() as u32;
         if physical_w == 0 || physical_h == 0 {
@@ -263,8 +277,9 @@ impl LayeredSurface {
 
         if self.ensure_size(physical_w, physical_h) {
             log::info!(
-                "layered surface resize: dpi={dpi} frame={frame_w}x{frame_h} \
-                 scaled(logical)={scaled_w}x{scaled_h} physical={physical_w}x{physical_h}"
+                "layered surface resize: scale={dpi_scale} frame={frame_w}x{frame_h} \
+                 scaled(logical)={scaled_w}x{scaled_h} physical={physical_w}x{physical_h} \
+                 pos=({phys_x}, {phys_y})"
             );
         }
         if self.pixels.is_null() {
@@ -295,7 +310,6 @@ impl LayeredSurface {
             }
         }
 
-        let (phys_x, phys_y) = logical_to_physical_position(window, hwnd, x, y);
         let dst_pos = POINT { x: phys_x, y: phys_y };
         let size = SIZE { cx: physical_w as i32, cy: physical_h as i32 };
         let src_pos = POINT { x: 0, y: 0 };
