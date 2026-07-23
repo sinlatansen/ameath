@@ -59,6 +59,13 @@ lint:
 fmt:
     nix develop -c treefmt --allow-missing-formatter --no-cache -C .
 
+# (Re)generates/installs/syncs the self-signed macOS code-signing
+# identity -- see scripts/setup-macos-signing.sh's own header for why
+# it exists. `just macos-signing generate`, `import`, `push-secrets`,
+# or `all`.
+macos-signing *args:
+    scripts/setup-macos-signing.sh {{ args }}
+
 legacy-dev:
     cd legacy; uv run ./main.py
 

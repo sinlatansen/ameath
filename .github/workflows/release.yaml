@@ -57,6 +57,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS code signing (see scripts/setup-macos-signing.sh):
+          # a self-signed identity, not a real Apple Developer ID, so
+          # this doesn't satisfy Gatekeeper for other users -- it only
+          # gives the app a stable signature so Accessibility
+          # permission (drag/follow-mouse/right-click) survives across
+          # releases instead of needing to be re-granted every update.
+          # Harmless no-ops on the other platforms in this matrix.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         with:
           projectPath: crates/fleet-snowfluff
           tagName: ${{ github.ref_name }}
