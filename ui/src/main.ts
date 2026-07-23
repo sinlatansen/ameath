@@ -33,6 +33,7 @@ interface PersonalizationSnapshot {
   opacity_options: number[];
   monitor_count: number;
   voice_languages_with_clips: string[];
+  config_path: string;
 }
 
 const UI_LANGUAGES = ["zh-hant", "zh-hans", "en", "ja", "ko"];
@@ -149,8 +150,14 @@ function field(labelText: string, controlHtml: string): string {
 async function renderPersonalization(): Promise<void> {
   const panel = document.querySelector<HTMLElement>('[data-panel="personalization"]')!;
   const snapshot = await invoke<PersonalizationSnapshot>("get_personalization");
-  const { config, scale_options, opacity_options, monitor_count, voice_languages_with_clips } =
-    snapshot;
+  const {
+    config,
+    scale_options,
+    opacity_options,
+    monitor_count,
+    voice_languages_with_clips,
+    config_path,
+  } = snapshot;
 
   const scaleOptionsHtml = scale_options
     .map(
@@ -214,6 +221,7 @@ async function renderPersonalization(): Promise<void> {
     ${field(t("personalization.monitor_label"), `<select id="monitor-select" ${config.total_screen ? "disabled" : ""}>${monitorOptionsHtml}</select>`)}
     ${field(t("personalization.window_snap_label"), `<input type="checkbox" id="window-snap-checkbox" ${config.window_snap ? "checked" : ""} />`)}
     ${field(t("personalization.instance_count_label"), `<input type="number" id="instance-count-input" min="1" max="80" value="${config.instance_count}" />`)}
+    <p class="hint">${t("personalization.instance_count_warning", { path: config_path })}</p>
     ${field(t("personalization.autostart_label"), `<input type="checkbox" id="autostart-checkbox" ${config.auto_startup ? "checked" : ""} />`)}
     ${field(t("personalization.ui_language_label"), `<select id="ui-language-select">${uiLanguageOptionsHtml}</select>`)}
     ${field(t("personalization.voice_enabled_label"), `<input type="checkbox" id="voice-enabled-checkbox" ${config.voice_enabled ? "checked" : ""} />`)}

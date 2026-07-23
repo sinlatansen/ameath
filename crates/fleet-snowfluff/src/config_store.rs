@@ -8,7 +8,7 @@
 use fleet_snowfluff_core::{config, Config, UiLanguage, VoiceLanguage};
 use tauri::{AppHandle, Manager};
 
-fn config_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+pub fn config_path(app: &AppHandle) -> Option<std::path::PathBuf> {
     app.path().app_config_dir().ok().map(|dir| dir.join("config.json"))
 }
 

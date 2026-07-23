@@ -28,6 +28,7 @@
   "personalization.monitor.numbered": "显示器 {index}",
   "personalization.window_snap_label": "窗口贴靠",
   "personalization.instance_count_label": "宠物数量",
+  "personalization.instance_count_warning": "设置过高可能导致应用程序（包括托盘和设置菜单）崩溃或卡死。如果发生这种情况，请关闭应用程序，并在以下路径中把“instance_count”手动改回 1：{path}",
   "personalization.autostart_label": "开机自启动",
   "personalization.ui_language_label": "界面语言",
   "personalization.voice_enabled_label": "语音",

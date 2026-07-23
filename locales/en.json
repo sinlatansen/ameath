@@ -28,6 +28,7 @@
   "personalization.monitor.numbered": "Monitor {index}",
   "personalization.window_snap_label": "Window Snap",
   "personalization.instance_count_label": "Number of Pets",
+  "personalization.instance_count_warning": "Setting this too high may crash or freeze the app, including the tray and settings menu. If that happens, close the app and edit \"instance_count\" back to 1 in: {path}",
   "personalization.autostart_label": "Launch at Login",
   "personalization.ui_language_label": "Language",
   "personalization.voice_enabled_label": "Voice",

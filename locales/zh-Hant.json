@@ -28,6 +28,7 @@
   "personalization.monitor.numbered": "顯示器 {index}",
   "personalization.window_snap_label": "視窗貼靠",
   "personalization.instance_count_label": "寵物數量",
+  "personalization.instance_count_warning": "設定過高可能導致應用程式（包含托盤與設定選單）當機或凍結。如發生此情況，請關閉應用程式，並於下列路徑中將「instance_count」手動改回 1：{path}",
   "personalization.autostart_label": "開機自動啟動",
   "personalization.ui_language_label": "介面語言",
   "personalization.voice_enabled_label": "語音",

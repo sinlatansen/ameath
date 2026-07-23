@@ -38,6 +38,13 @@ pub struct PersonalizationSnapshot {
     opacity_options: Vec<f64>,
     monitor_count: usize,
     voice_languages_with_clips: Vec<VoiceLanguage>,
+    /// Absolute path to `config.json`, shown next to the instance-count
+    /// control so a user who sets it too high and hits the resulting
+    /// crash/lag (task/bug: uncapped instance count can overwhelm the
+    /// tick loop) has a concrete path to manually edit back down --
+    /// differs by platform (`app_config_dir`), so it can't be a static
+    /// string in the locale files.
+    config_path: String,
 }
 
 #[tauri::command]
@@ -52,6 +59,9 @@ pub fn get_personalization(
         opacity_options: constants::transparency_options(),
         monitor_count: app.available_monitors().map(|m| m.len()).unwrap_or(1),
         voice_languages_with_clips: manager.lock().unwrap().voice_languages_with_clips().to_vec(),
+        config_path: config_store::config_path(&app)
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
     }
 }
 

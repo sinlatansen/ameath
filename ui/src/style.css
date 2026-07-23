@@ -216,3 +216,10 @@ body {
   font-size: 0.9em;
   word-break: break-word;
 }
+
+.hint {
+  color: var(--pico-muted-color);
+  font-size: 0.8em;
+  margin: -0.5rem 0 0;
+  word-break: break-word;
+}

@@ -28,6 +28,7 @@
   "personalization.monitor.numbered": "モニター {index}",
   "personalization.window_snap_label": "ウィンドウスナップ",
   "personalization.instance_count_label": "ペットの数",
+  "personalization.instance_count_warning": "この値を高く設定しすぎると、トレイや設定メニューを含むアプリがクラッシュまたはフリーズすることがあります。その場合はアプリを終了し、次のパスにある「instance_count」を手動で1に戻してください：{path}",
   "personalization.autostart_label": "ログイン時に自動起動",
   "personalization.ui_language_label": "言語",
   "personalization.voice_enabled_label": "音声",
