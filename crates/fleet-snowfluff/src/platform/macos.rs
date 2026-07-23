@@ -48,6 +48,43 @@ fn set_level(window: &tauri::window::Window, level: i32) {
     }
 }
 
+/// Shows a native alert if Accessibility permission isn't granted --
+/// `device_query`'s global mouse polling needs it for drag, follow-
+/// mouse, and the right-click quick menu, and `PetManager::new`
+/// silently falls back to no mouse polling at all without it (see that
+/// call site's own comment). macOS's own `AXIsProcessTrustedWithOptions`
+/// prompt (which `DeviceState::new` triggers) only ever fires once per
+/// app identity, so a user who missed or denied it would otherwise have
+/// zero indication those features are gone -- there's nothing in this
+/// app's own UI they'd think to check. Shells out to `osascript` for a
+/// one-shot dialog rather than pulling in the full `NSAlert` bindings.
+/// Runs on a background thread by the caller; blocks until dismissed,
+/// which is fine there since it doesn't hold up pet spawning.
+pub fn warn_if_accessibility_missing(lang: fleet_snowfluff_core::UiLanguage) {
+    if macos_accessibility_client::accessibility::application_is_trusted() {
+        return;
+    }
+    let t = |key: &str| {
+        fleet_snowfluff_core::dictionary(lang).get(key).cloned().unwrap_or_else(|| key.to_string())
+    };
+    let script = format!(
+        "display alert {} message {} as warning",
+        applescript_string(&t("permission.macos_accessibility_title")),
+        applescript_string(&t("permission.macos_accessibility_message")),
+    );
+    if let Err(err) = std::process::Command::new("osascript").arg("-e").arg(script).status() {
+        log::warn!("failed to show accessibility-permission alert: {err}");
+    }
+}
+
+/// Quotes and escapes a string for interpolation into an AppleScript
+/// string literal (this goes straight into a single `Command` argument,
+/// never through a shell, so this is only about AppleScript's own
+/// string-literal syntax, not shell injection).
+fn applescript_string(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
 // `key` must be a valid `CGWindowLevelKey` value (see Apple's
 // `CGWindowLevel.h`); these keys are stable across macOS versions, the
 // resulting level integers are not, hence calling this instead of

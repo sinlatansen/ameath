@@ -61,5 +61,7 @@
   "update.error": "업데이트 확인에 실패했습니다. 나중에 다시 시도해 주세요.",
   "update.available": "새 버전 {version}을(를) 사용할 수 있습니다.",
   "update.installing": "업데이트를 설치하는 중…",
-  "update.restart_required": "업데이트가 설치되었습니다. 적용하려면 다시 시작하세요."
+  "update.restart_required": "업데이트가 설치되었습니다. 적용하려면 다시 시작하세요.",
+  "permission.macos_accessibility_title": "손쉬운 사용 권한이 필요합니다",
+  "permission.macos_accessibility_message": "Fleet Snowfluff가 드래그, 마우스 따라가기, 우클릭 메뉴를 감지하려면 \"손쉬운 사용\" 권한이 필요합니다. \"시스템 설정\" → \"개인정보 보호 및 보안\" → \"손쉬운 사용\"을 열어 이 앱을 활성화한 후 Fleet Snowfluff를 다시 시작하세요."
 }

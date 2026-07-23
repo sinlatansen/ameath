@@ -145,6 +145,20 @@ pub fn run() {
                 }
             }
 
+            // `PetManager::new` above already tried and silently fell
+            // back to no mouse polling if Accessibility permission is
+            // missing (its own comment covers why) -- surface that to
+            // the user instead of leaving drag/follow-mouse/right-click
+            // dead with zero explanation. Backgrounded since `osascript`
+            // blocks on the dialog and this shouldn't hold up startup.
+            #[cfg(target_os = "macos")]
+            {
+                let lang = config.ui_language;
+                std::thread::spawn(move || {
+                    crate::platform::macos::warn_if_accessibility_missing(lang);
+                });
+            }
+
             app.manage(Mutex::new(pet_manager));
             app.manage(Mutex::new(config));
             app.manage(Mutex::<Option<tauri_plugin_updater::Update>>::new(None));

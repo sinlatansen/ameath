@@ -15,10 +15,21 @@ use tauri::{menu::ContextMenu, AppHandle};
 /// context menu (and freezes that pet's pose while it's open, matching
 /// legacy's temporary-pause-on-open).
 pub fn popup(app: &AppHandle, window: &tauri::window::Window) {
+    // Diagnostic (not permanent): reports of right-click doing nothing
+    // on Windows with no visible error anywhere -- `menu.popup` returns
+    // `tauri::Result<()>` that success/failure alone can't distinguish
+    // from "opened and was instantly dismissed" (e.g. if `TrackPopupMenu`
+    // ends up with a `SetForegroundWindow` that Windows silently refused,
+    // since this popup is triggered by our own background mouse-polling
+    // loop rather than a real input message the window received). These
+    // logs exist to tell those two cases apart on the next real-hardware
+    // test.
+    log::info!("quick menu requested for window {:?}", window.label());
     match crate::tray::build_menu(app) {
-        Ok((menu, _items)) => {
-            menu.popup(window.clone()).ok();
-        }
+        Ok((menu, _items)) => match menu.popup(window.clone()) {
+            Ok(()) => log::info!("quick menu popup() returned Ok for window {:?}", window.label()),
+            Err(err) => log::error!("quick menu popup() failed for {:?}: {err}", window.label()),
+        },
         Err(err) => log::error!("failed to build quick menu: {err}"),
     }
 }

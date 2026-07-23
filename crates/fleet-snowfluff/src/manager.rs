@@ -588,8 +588,16 @@ impl PetManager {
             // no native right-click event, so this rides the same global
             // mouse poll as drag detection.
             if right_pressed_this_tick {
-                if let Some(idx) = self.pets.iter().position(|p| p.bounds_contains(cursor)) {
-                    pending_quick_menu = Some(self.pets[idx].window.clone());
+                // Diagnostic (not permanent, see `quick_menu::popup`'s
+                // matching log): confirms the click was even detected
+                // and landed on a pet, before `quick_menu::popup` takes
+                // over and reports what happened after that.
+                log::info!("right-click detected at {cursor:?}");
+                match self.pets.iter().position(|p| p.bounds_contains(cursor)) {
+                    Some(idx) => {
+                        pending_quick_menu = Some(self.pets[idx].window.clone());
+                    }
+                    None => log::info!("right-click at {cursor:?} did not land on any pet"),
                 }
             }
         }

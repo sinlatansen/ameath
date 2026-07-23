@@ -36,10 +36,11 @@ tauri-plugin-updater   = { workspace = true }
 wgpu                   = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-foundation = { workspace = true }
-core-graphics   = { workspace = true }
-objc2           = { workspace = true }
-objc2-app-kit   = { workspace = true }
+core-foundation            = { workspace = true }
+core-graphics              = { workspace = true }
+macos-accessibility-client = { workspace = true }
+objc2                      = { workspace = true }
+objc2-app-kit              = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true }

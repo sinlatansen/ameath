@@ -61,5 +61,7 @@
   "update.error": "Update check failed. Please try again later.",
   "update.available": "A new version, {version}, is available.",
   "update.installing": "Installing update…",
-  "update.restart_required": "Update installed. Restart to apply."
+  "update.restart_required": "Update installed. Restart to apply.",
+  "permission.macos_accessibility_title": "Accessibility Permission Needed",
+  "permission.macos_accessibility_message": "Fleet Snowfluff needs Accessibility permission to detect dragging, follow-mouse, and right-click. Open System Settings → Privacy & Security → Accessibility, enable it for this app, then restart Fleet Snowfluff."
 }
