@@ -1242,7 +1242,6 @@ dependencies = [
  "fleet-snowfluff-core",
  "image",
  "log",
- "macos-accessibility-client",
  "objc2",
  "objc2-app-kit",
  "pollster",

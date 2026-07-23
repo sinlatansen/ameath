@@ -61,7 +61,5 @@
   "update.error": "アップデートの確認に失敗しました。しばらくしてから再度お試しください。",
   "update.available": "新しいバージョン {version} が利用可能です。",
   "update.installing": "アップデートをインストールしています…",
-  "update.restart_required": "アップデートがインストールされました。再起動すると適用されます。",
-  "permission.macos_accessibility_title": "アクセシビリティ権限が必要です",
-  "permission.macos_accessibility_message": "Fleet Snowfluffがドラッグ、マウス追従、右クリックメニューを検出するには「アクセシビリティ」権限が必要です。「システム設定」→「プライバシーとセキュリティ」→「アクセシビリティ」を開き、このアプリを有効にしてから、Fleet Snowfluffを再起動してください。"
+  "update.restart_required": "アップデートがインストールされました。再起動すると適用されます。"
 }

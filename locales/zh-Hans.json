@@ -61,7 +61,5 @@
   "update.error": "检查更新失败，请稍后重试。",
   "update.available": "发现新版本 {version}。",
   "update.installing": "正在安装更新…",
-  "update.restart_required": "更新已安装，重启后生效。",
-  "permission.macos_accessibility_title": "需要辅助功能权限",
-  "permission.macos_accessibility_message": "Fleet Snowfluff 需要“辅助功能”权限才能检测拖动、跟随鼠标与右键菜单。请打开“系统设置”→“隐私与安全性”→“辅助功能”，为本应用启用该权限，然后重新启动 Fleet Snowfluff。"
+  "update.restart_required": "更新已安装，重启后生效。"
 }
