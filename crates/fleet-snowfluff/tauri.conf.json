@@ -8,7 +8,7 @@
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm --prefix ../ui run dev",
     "beforeBuildCommand": "npm --prefix ../ui run build",
-    "beforeBundleCommand": "bash ../../scripts/fix-macos-dylib-paths.sh ../../target"
+    "beforeBundleCommand": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash scripts/fix-macos-dylib-paths.sh target'"
   },
   "app": {
     "macOSPrivateApi": true,
