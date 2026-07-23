@@ -45,5 +45,10 @@ objc2-app-kit   = { workspace = true }
 windows = { workspace = true }
 winreg  = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+gdk   = { workspace = true }
+gtk   = { workspace = true }
+x11rb = { workspace = true }
+
 [dev-dependencies]
 env_logger = { workspace = true }

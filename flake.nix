@@ -52,12 +52,18 @@
             # only the std lib, not a full toolchain -- cargo-xwin
             # supplies the MSVC headers/libs/linker for the actual
             # cross-link, this just lets rustc compile for the triple
-            # at all. Linux doesn't need an entry here: it builds
-            # inside a real Linux container (justfile's `build-linux`),
-            # not cross-compiled, since Tauri's Linux backend links
-            # against webkit2gtk/GTK which aren't practical to cross-
-            # build from macOS.
+            # at all.
             targets.x86_64-pc-windows-msvc.stable.rust-std
+
+            # Linux target's std lib -- lets `cargo check`/`clippy`
+            # type-check Linux-specific code (platform/linux.rs) from
+            # this devshell without needing the real Linux container.
+            # Doesn't make a full `fleet-snowfluff` build possible here:
+            # Tauri's Linux backend links against webkit2gtk/GTK, real
+            # system libraries no rust-std target provides, so an
+            # actual cross-compiled binary still needs the container
+            # (justfile's `build-linux`), not this devshell.
+            targets.x86_64-unknown-linux-gnu.stable.rust-std
           ];
 
         rustPlatform = pkgs.makeRustPlatform {
