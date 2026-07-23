@@ -41,7 +41,13 @@ pub const REST_DURATION_MIN_MS: i64 = 1_000;
 pub const REST_DURATION_MAX_MS: i64 = 3_000;
 pub const REST_DISTANCE: f64 = 20.0;
 
-/// Pause-mode random special-animation interval.
+/// Pause-mode (window-snap) special-animation timing. Diverges from
+/// legacy's `paused()`/`paused_to_idle()` cycle by product decision, not
+/// a porting bug: rest quietly for a fixed `PAUSE_IDLE_MS` before the
+/// first screen-reaction gif, then keep switching to a different random
+/// one every `PAUSE_ANIM_MIN_MS..PAUSE_ANIM_MAX_MS` for as long as the
+/// pet stays paused, instead of returning to the idle pose in between.
+pub const PAUSE_IDLE_MS: i64 = 10_000;
 pub const PAUSE_ANIM_MIN_MS: i64 = 30_000;
 pub const PAUSE_ANIM_MAX_MS: i64 = 120_000;
 

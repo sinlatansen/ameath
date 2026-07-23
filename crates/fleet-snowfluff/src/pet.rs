@@ -100,7 +100,7 @@ impl PetWindow {
             surface,
             state,
             animations,
-            pause_scheduler: PauseAnimationScheduler::new(rng),
+            pause_scheduler: PauseAnimationScheduler::new(),
             paused: false,
             docked: false,
             dragging: false,
@@ -145,7 +145,7 @@ impl PetWindow {
             dock_position: None,
             state,
             animations,
-            pause_scheduler: PauseAnimationScheduler::new(rng),
+            pause_scheduler: PauseAnimationScheduler::new(),
             paused: false,
             docked: false,
             dragging: false,
@@ -350,15 +350,19 @@ impl PetWindow {
             // stay frozen on frame 0 of the paused/screen cue forever,
             // reported as "the gif does not change" while docked.
             self.frame_frozen = false;
-            match self.pause_scheduler.tick(dt_ms, rng) {
-                PauseAnimEvent::PlayRandomAnimation => {
-                    self.screen_variant = rng.random_range(0..self.animations.screen.len());
-                    self.set_cue(AnimationCue::Screen(self.screen_variant));
-                }
-                PauseAnimEvent::ReturnToIdle => {
-                    self.set_cue(AnimationCue::Paused);
-                }
-                PauseAnimEvent::None => {}
+            if self.pause_scheduler.tick(dt_ms, rng) == PauseAnimEvent::PlayRandomAnimation {
+                let count = self.animations.screen.len();
+                self.screen_variant = if count > 1 {
+                    let next = rng.random_range(0..count - 1);
+                    if next >= self.screen_variant {
+                        next + 1
+                    } else {
+                        next
+                    }
+                } else {
+                    0
+                };
+                self.set_cue(AnimationCue::Screen(self.screen_variant));
             }
             self.apply_window_size(gpu);
             return;
