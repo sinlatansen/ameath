@@ -33,6 +33,18 @@ DEFAULT_CONFIG = {
     "voice_volume": DEFAULT_VOICE_VOLUME,
     "music_enabled": True,
     "music_volume": 100,
+    "startup_position": None,
+    "start_paused": False,
+}
+
+
+_STARTUP_POSITION_PRESETS = {
+    "random",
+    "bottom_right",
+    "bottom_left",
+    "top_right",
+    "top_left",
+    "center",
 }
 
 
@@ -130,6 +142,13 @@ def _sanitize_config(config):
         DEFAULT_CONFIG["music_volume"],
         min_value=0,
         max_value=100,
+    )
+    val = config.get("startup_position")
+    result["startup_position"] = (
+        val if isinstance(val, str) and val in _STARTUP_POSITION_PRESETS else None
+    )
+    result["start_paused"] = _coerce_bool(
+        config.get("start_paused"), DEFAULT_CONFIG["start_paused"]
     )
     return result
 
