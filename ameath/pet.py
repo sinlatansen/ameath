@@ -67,43 +67,6 @@ from .voice import VoicePlayer
 from . import window_manager
 
 
-def compute_startup_position(anchor, work_area, pet_size, margin=20):
-    """根据屏幕工作区和锚点计算桌宠左上角坐标。
-
-    纯函数：输入屏幕参数，输出坐标；不读全局状态、不调系统 API。
-
-    Args:
-        anchor: 锚点字符串，"bottom_right"/"bottom_left"/"top_right"/"top_left"/"center"
-        work_area: (left, top, right, bottom) 工作区矩形
-        pet_size: (width, height) 桌宠尺寸
-        margin: 离工作区边缘的内边距像素
-
-    Returns:
-        (x, y) 或 None（锚点非法）
-    """
-    left, top, right, bottom = work_area
-    w, h = pet_size
-    table = {
-        "bottom_right": (right - w - margin, bottom - h - margin),
-        "bottom_left": (left + margin, bottom - h - margin),
-        "top_right": (right - w - margin, top + margin),
-        "top_left": (left + margin, top + margin),
-        "center": ((left + right - w) // 2, (top + bottom - h) // 2),
-    }
-    return table.get(anchor)
-
-
-def _get_primary_work_area():
-    """抓取主屏工作区（已扣除任务栏）。每次启动都重新抓。"""
-    rect = wintypes.RECT()
-    # SPI_GETWORKAREA = 0x0030
-    if not ctypes.windll.user32.SystemParametersInfoW(
-        0x0030, 0, ctypes.byref(rect), 0
-    ):
-        return None
-    return (rect.left, rect.top, rect.right, rect.bottom)
-
-
 class DesktopGif:
     app: Any = None  # 用于系统托盘
 
@@ -560,9 +523,9 @@ class DesktopGif:
         值为 "random" / None / 非法时回退到原有随机出生逻辑。"""
         anchor = config.get("startup_position")
         if anchor and anchor != "random":
-            work_area = _get_primary_work_area()
+            work_area = self._get_primary_work_area()
             if work_area:
-                pos = compute_startup_position(anchor, work_area, (self.w, self.h))
+                pos = self.compute_startup_position(anchor, work_area, (self.w, self.h))
                 if pos is not None:
                     return pos
         # 回退：原有随机位置
@@ -570,6 +533,45 @@ class DesktopGif:
             random.randint(self.screen_x, self.screen_w - self.w),
             random.randint(self.screen_y, self.screen_h - self.h),
         )
+    
+    def _get_primary_work_area(self):
+        """抓取主屏工作区（已扣除任务栏）。每次启动都重新抓。"""
+        rect = wintypes.RECT()
+        # SPI_GETWORKAREA = 0x0030
+        if not ctypes.windll.user32.SystemParametersInfoW(
+            0x0030, 0, ctypes.byref(rect), 0
+        ):
+            return None
+        return (rect.left, rect.top, rect.right, rect.bottom)
+
+    def compute_startup_position(self, anchor, work_area, pet_size, margin=60):
+        """根据屏幕工作区和锚点计算桌宠左上角坐标。
+    
+        纯函数：输入屏幕参数，输出坐标；不读全局状态、不调系统 API。
+    
+        Args:
+            anchor: 锚点字符串，"bottom_right"/"bottom_left"/"top_right"/"top_left"/"center"
+            work_area: (left, top, right, bottom) 工作区矩形
+            pet_size: (width, height) 桌宠尺寸
+            margin: 离工作区边缘的内边距像素
+    
+        Returns:
+            (x, y) 或 None（锚点非法）
+        """
+        left = self.screen_x
+        top = self.screen_y
+        right = self.screen_w
+        bottom = self.screen_h
+        #left, top, right, bottom = work_area
+        w, h = pet_size
+        table = {
+            "bottom_right": (right - w - margin, bottom - h - margin),
+            "bottom_left": (left + margin, bottom - h - margin),
+            "top_right": (right - w - margin, top + margin),
+            "top_left": (left + margin, top + margin),
+            "center": ((left + right - w) // 2, (top + bottom - h) // 2),
+        }
+        return table.get(anchor)
 
     def stop_drag(self, event):
         """停止拖动"""
